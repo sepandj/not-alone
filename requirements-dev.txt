@@ -1,0 +1,4 @@
+# Tools for scripts/calibrate.py only (not needed at runtime).
+# Pinned to stay compatible with the runtime huggingface-hub.
+datasets==2.21.0
+huggingface-hub==0.36.2

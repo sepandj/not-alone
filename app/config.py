@@ -15,11 +15,14 @@ class Settings(BaseSettings):
     # Cosine-distance thresholds (pgvector <=> returns distance = 1 - cosine_sim).
     # Below same_distance  -> counted as the SAME thought.
     # Below suggest_distance (but above same) -> offered as a related suggestion.
-    # Calibrated empirically on this model: near-paraphrases ("I feel lonely" ~
-    # "I am alone" ~ 0.34) count as the same feeling; wider emotional neighbours
-    # ("I have nobody" ~0.48) surface as suggestions; unrelated text (~0.9) is
-    # ignored. Tune these to taste — they change grouping tightness directly.
-    same_distance: float = 0.42
+    # Calibrated against the open STS-B dataset (1500 human-scored pairs) plus a
+    # typo-robustness sweep (see scripts/calibrate.py). On real emotional
+    # phrasings the model groups paraphrases tightly ("I feel lonely" ~ "I am
+    # alone" ~ "I am sad" ~ 0.34; "anxious" ~ "worried" ~ 0.16) and rejects
+    # unrelated text (~0.90). same=0.45 keeps those together and holds ~88% of
+    # typo'd variants within range; wider feelings ("I have nobody" ~0.48)
+    # surface as suggestions below suggest_distance.
+    same_distance: float = 0.45
     suggest_distance: float = 0.65
 
     # Privacy: a city is only ever shown once at least this many distinct people
