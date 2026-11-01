@@ -1,0 +1,19 @@
+[Unit]
+Description=not-alone web service
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/not-alone/app
+EnvironmentFile=/opt/not-alone/app/.env
+ExecStart=/opt/not-alone/app/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
+Restart=always
+RestartSec=3
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

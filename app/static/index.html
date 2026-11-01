@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>You Are Not Alone</title>
+<style>
+  :root{
+    --bg:#f6f1ea; --card:#fffdf9; --ink:#2b2724; --muted:#7c736a;
+    --accent:#c98a5e; --accent-ink:#fff; --line:#e9e0d4; --chip:#f0e8dc;
+    color-scheme:light;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --bg:#1a1714; --card:#242019; --ink:#efe8de; --muted:#a89b8c;
+    --accent:#d99e74; --accent-ink:#1a1714; --line:#352f27; --chip:#2f2920;
+    color-scheme:dark;
+  }}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.5 ui-rounded,"Segoe UI",system-ui,sans-serif;
+    padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+  .wrap{max-width:640px;margin:0 auto;padding:40px 20px 80px}
+  header{text-align:center;margin-bottom:28px}
+  h1{font-size:28px;margin:0 0 6px;font-weight:700;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:15px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:20px;
+    padding:22px;box-shadow:0 8px 30px rgba(0,0,0,.04)}
+  textarea{width:100%;border:1px solid var(--line);background:transparent;color:var(--ink);
+    border-radius:14px;padding:14px;font:inherit;resize:vertical;min-height:84px;outline:none}
+  textarea:focus{border-color:var(--accent)}
+  .row{display:flex;gap:10px;align-items:center;margin-top:12px}
+  .count{color:var(--muted);font-size:13px;margin-left:auto}
+  button{background:var(--accent);color:var(--accent-ink);border:0;border-radius:999px;
+    padding:12px 22px;font:inherit;font-weight:600;cursor:pointer}
+  button:disabled{opacity:.5;cursor:default}
+  #result{margin-top:22px;display:none}
+  .big{text-align:center;padding:10px 0 4px}
+  .big .n{font-size:44px;font-weight:800;color:var(--accent);line-height:1}
+  .big .t{color:var(--muted);margin-top:6px}
+  .section-title{font-size:13px;text-transform:uppercase;letter-spacing:.08em;
+    color:var(--muted);margin:22px 0 10px}
+  .bar{display:flex;align-items:center;gap:10px;margin:7px 0}
+  .bar .label{min-width:120px;font-size:14px}
+  .bar .track{flex:1;height:10px;background:var(--chip);border-radius:999px;overflow:hidden}
+  .bar .fill{height:100%;background:var(--accent);border-radius:999px}
+  .bar .val{font-size:13px;color:var(--muted);min-width:28px;text-align:right}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:var(--chip);border:1px solid var(--line);border-radius:999px;
+    padding:8px 14px;font-size:14px;cursor:pointer}
+  .chip .c{color:var(--muted);font-size:12px;margin-left:6px}
+  .crisis{margin-top:18px;border:1px solid var(--accent);border-radius:14px;padding:16px;
+    background:color-mix(in srgb,var(--accent) 10%,transparent)}
+  .crisis h3{margin:0 0 6px;font-size:15px}
+  .crisis a{color:var(--accent)}
+  .crisis ul{margin:8px 0 0;padding-left:18px}
+  footer{text-align:center;color:var(--muted);font-size:12px;margin-top:30px}
+  .muted{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>You are not alone</h1>
+    <div class="sub">Say what's on your mind. See how many others feel the same, right now.</div>
+  </header>
+
+  <div class="card">
+    <textarea id="thought" maxlength="280" placeholder="What's on your mind?"></textarea>
+    <div class="row">
+      <button id="send">Share my thought</button>
+      <span class="count"><span id="chars">0</span>/280</span>
+    </div>
+    <div class="row muted" style="font-size:12px">
+      Your words are private. Only anonymous counts are ever shown to others.
+    </div>
+  </div>
+
+  <div id="result" class="card">
+    <div class="big">
+      <div class="n" id="rnum">—</div>
+      <div class="t" id="rtext"></div>
+    </div>
+
+    <div id="crisis"></div>
+
+    <div id="geo"></div>
+
+    <div id="sugg-wrap" style="display:none">
+      <div class="section-title">People nearby also feel…</div>
+      <div class="chips" id="sugg"></div>
+    </div>
+  </div>
+
+  <footer>
+    <span id="globalstats"></span><br>
+    A small, kind experiment. Be gentle with yourself. 🤍
+  </footer>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const ta = $("#thought");
+ta.addEventListener("input", () => $("#chars").textContent = ta.value.length);
+
+async function loadStats(){
+  try{
+    const r = await fetch("/api/stats"); const d = await r.json();
+    $("#globalstats").textContent =
+      `${d.people.toLocaleString()} people have shared ${d.thoughts.toLocaleString()} thoughts here.`;
+  }catch(e){}
+}
+loadStats();
+
+function bars(container, items, key){
+  const el = $(container);
+  if(!items.length){ el.innerHTML = '<div class="muted" style="font-size:14px">Not enough people yet to show a map — you may be among the first. 🌱</div>'; return; }
+  const max = Math.max(...items.map(i=>i.people));
+  el.innerHTML = items.slice(0,8).map(i=>`
+    <div class="bar">
+      <div class="label">${(i[key]||"Unknown")}${i.city?"":""}</div>
+      <div class="track"><div class="fill" style="width:${Math.round(i.people/max*100)}%"></div></div>
+      <div class="val">${i.people}</div>
+    </div>`).join("");
+}
+
+$("#send").addEventListener("click", async () => {
+  const text = ta.value.trim();
+  if(!text) return;
+  $("#send").disabled = true; $("#send").textContent = "Listening…";
+  try{
+    const r = await fetch("/api/thoughts", {
+      method:"POST", headers:{"content-type":"application/json"},
+      body: JSON.stringify({text})
+    });
+    if(!r.ok) throw new Error(await r.text());
+    const d = await r.json();
+    render(d);
+  }catch(e){
+    alert("Something went wrong. Please try again in a moment.");
+  }finally{
+    $("#send").disabled = false; $("#send").textContent = "Share my thought";
+  }
+});
+
+function render(d){
+  $("#result").style.display = "block";
+  const others = d.others_feeling_this;
+  $("#rnum").textContent = others > 0 ? others.toLocaleString() : "💛";
+  $("#rtext").textContent = others > 0
+    ? `other ${others===1?"person feels":"people feel"} the same way you do.`
+    : "You may be the first to feel this here — but others will come. You opened the door.";
+
+  // Crisis resources
+  const cw = $("#crisis");
+  if(d.crisis){
+    cw.innerHTML = `<div class="crisis"><h3>${d.crisis.message}</h3><ul>` +
+      d.crisis.lines.map(l=>`<li><strong>${l.where}:</strong> ${l.name} — ${
+        l.contact.startsWith("http")?`<a href="${l.contact}" target="_blank" rel="noopener">${l.contact}</a>`:l.contact
+      }</li>`).join("") + `</ul></div>`;
+  } else { cw.innerHTML = ""; }
+
+  // Geography
+  let g = "";
+  if(d.countries && d.countries.length){
+    g += '<div class="section-title">Where in the world</div><div id="countries"></div>';
+  }
+  if(d.cities && d.cities.length){
+    g += '<div class="section-title">Cities</div><div id="cities"></div>';
+  }
+  $("#geo").innerHTML = g;
+  if(d.countries && d.countries.length) bars("#countries", d.countries, "country");
+  if(d.cities && d.cities.length) bars("#cities", d.cities.map(c=>({...c, label:`${c.city}, ${c.country}`})), "city");
+
+  // Suggestions
+  const sw = $("#sugg-wrap");
+  if(d.suggestions && d.suggestions.length){
+    sw.style.display = "block";
+    $("#sugg").innerHTML = d.suggestions.map(s=>
+      `<span class="chip" data-t="${s.thought.replace(/"/g,'&quot;')}">${s.thought}<span class="c">${s.people}</span></span>`
+    ).join("");
+    document.querySelectorAll("#sugg .chip").forEach(c=>c.addEventListener("click",()=>{
+      ta.value = c.dataset.t; $("#chars").textContent = ta.value.length; $("#send").click();
+    }));
+  } else { sw.style.display = "none"; }
+
+  $("#result").scrollIntoView({behavior:"smooth", block:"start"});
+}
+</script>
+</body>
+</html>
