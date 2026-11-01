@@ -1,0 +1,8 @@
+[Unit]
+Description=Update GoDaddy DNS for notalone.sepand.dev
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/not-alone/ddns.sh
