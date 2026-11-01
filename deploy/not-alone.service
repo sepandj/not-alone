@@ -6,6 +6,8 @@ Wants=postgresql.service
 [Service]
 Type=simple
 WorkingDirectory=/opt/not-alone/app
+Environment=LANG=en_US.UTF-8
+Environment=PYTHONPATH=/opt/not-alone/app
 EnvironmentFile=/opt/not-alone/app/.env
 ExecStart=/opt/not-alone/app/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
 Restart=always
