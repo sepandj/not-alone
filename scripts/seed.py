@@ -24,6 +24,13 @@ SEEDS = [
     # tiredness / low mood
     "I'm so tired", "I feel numb", "I've lost interest in things I used to love",
     "I can't sleep", "everything feels heavy lately",
+    "I'm tired of being tired", "I'm exhausted but can't rest",
+    # boredom / empty time
+    "I'm so bored", "every day feels the same", "nothing sounds fun anymore",
+    "I'm scrolling just to pass the time", "I have nothing to look forward to",
+    # lonely at odd hours
+    "it's late and I can't sleep and I feel alone", "I have no one to text",
+    "I'm bored and lonely", "I wish someone would just ask how I'm doing",
     # self-worth
     "I feel like I'm not good enough", "I feel like a fraud",
     "I compare myself to everyone", "I'm hard on myself",
