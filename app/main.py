@@ -221,6 +221,66 @@ def stats(db: Session = Depends(get_db)):
     return out
 
 
+# Crawlers and link-preview fetchers that happen to run the page script.
+_BOT_UA = ("bot", "crawl", "spider", "slurp", "preview", "headless", "lighthouse", "curl", "python", "wget")
+
+
+@app.post("/api/visit", status_code=204)
+@limiter.limit("20/minute")
+def record_visit(request: Request, db: Session = Depends(get_db)):
+    """Called once by the home page on load. One row per visitor per day; a
+    repeat visit the same day only bumps that row's view count."""
+    ua = (request.headers.get("user-agent") or "").lower()
+    if not ua or any(b in ua for b in _BOT_UA):
+        return Response(status_code=204)
+    ip = client_ip(request)
+    country, city = locate(ip)
+    db.execute(sql("""
+        INSERT INTO visits (day, visitor_hash, country, city, views)
+        VALUES (CURRENT_DATE, :h, :c, :ci, 1)
+        ON CONFLICT (day, visitor_hash) DO UPDATE SET views = visits.views + 1
+    """), {"h": visitor_hash(ip), "c": country, "ci": city})
+    db.commit()
+    return Response(status_code=204)
+
+
+_views_cache: tuple[float, dict] | None = None
+
+
+@app.get("/api/views")
+def views(db: Session = Depends(get_db)):
+    """Public view counter and where visitors / posters are. Countries are shown
+    as-is (like the thought breakdown); a city appears only once at least
+    city_k_anonymity distinct visitors came from it."""
+    global _views_cache
+    now = time.monotonic()
+    if _views_cache and now - _views_cache[0] < 60:
+        return _views_cache[1]
+    q = lambda s, **p: db.execute(sql(s), p)
+    tot = q("""SELECT COALESCE(SUM(views),0), COUNT(DISTINCT visitor_hash),
+                      COALESCE(SUM(views) FILTER (WHERE day = CURRENT_DATE),0),
+                      COUNT(DISTINCT visitor_hash) FILTER (WHERE day = CURRENT_DATE)
+               FROM visits""").one()
+    visitors = {r[0]: r[1] for r in q(
+        "SELECT country, COUNT(DISTINCT visitor_hash) FROM visits GROUP BY country")}
+    posters = {r[0]: r[1] for r in q(
+        """SELECT country, COUNT(DISTINCT visitor_hash) FROM thoughts
+           WHERE NOT is_seed AND status <> 'blocked' GROUP BY country""")}
+    countries = sorted(
+        ({"country": c, "visitors": visitors.get(c, 0), "posters": posters.get(c, 0)}
+         for c in set(visitors) | set(posters) if c and c != "Unknown"),
+        key=lambda x: (-x["visitors"], -x["posters"], x["country"]))
+    cities = [{"country": r[0], "city": r[1], "visitors": r[2]} for r in q(
+        """SELECT country, city, COUNT(DISTINCT visitor_hash) n FROM visits
+           WHERE city IS NOT NULL GROUP BY country, city
+           HAVING COUNT(DISTINCT visitor_hash) >= :k ORDER BY n DESC, city LIMIT 20""",
+        k=settings.city_k_anonymity)]
+    out = {"views": tot[0], "visitors": tot[1], "views_today": tot[2],
+           "visitors_today": tot[3], "countries": countries, "cities": cities}
+    _views_cache = (now, out)
+    return out
+
+
 @app.get("/healthz")
 def healthz():
     return {"ok": True}

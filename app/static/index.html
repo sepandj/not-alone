@@ -187,6 +187,22 @@
   .credit{position:relative; z-index:1; margin-top:48px; font-family:var(--type); font-size:10.5px; color:var(--faint)}
   .credit a{color:inherit}
 
+  .visits{position:relative; z-index:1; margin-top:56px; width:100%; max-width:30rem; margin-left:auto; margin-right:auto;
+    font-family:var(--type); font-size:12px; letter-spacing:.04em; color:var(--muted)}
+  .visits summary{list-style:none; cursor:pointer; display:inline-block; border-bottom:1px solid var(--line); padding:4px 2px}
+  .visits summary::-webkit-details-marker{display:none}
+  .visits summary:hover{color:var(--ink)}
+  .visits[open] summary{color:var(--ink)}
+  .visits .today{display:block; margin-top:8px; font-size:11px; color:var(--faint)}
+  .places-t{width:100%; margin:20px 0 0; border-collapse:collapse; font-size:12px; text-align:left}
+  .places-t caption{caption-side:top; text-align:center; font-size:10.5px; letter-spacing:.22em; text-transform:uppercase; color:var(--faint); padding-bottom:10px}
+  .places-t th{font-weight:400; font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); padding:6px 4px; border-bottom:1px solid var(--line)}
+  .places-t td{padding:7px 4px; border-bottom:1px dotted var(--line); color:var(--ink)}
+  .places-t td.n, .places-t th.n{text-align:right; font-variant-numeric:tabular-nums; width:6.5em}
+  .places-t td.n{color:var(--muted)}
+  .cities{margin-top:18px; font-size:11.5px; line-height:1.9; color:var(--muted); text-wrap:balance}
+  .visits .fine{margin-top:16px; font-size:10.5px; color:var(--faint); line-height:1.7}
+
   .fade{animation:fade .8s ease forwards}
   @keyframes fade{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
   @media (prefers-reduced-motion:reduce){.fade{animation:none} .composer{transition:none}}
@@ -212,6 +228,10 @@
 
   <section class="response" id="response" hidden aria-live="polite"></section>
 </main>
+<details class="visits" id="visits" hidden>
+  <summary id="visitsSum"></summary>
+  <div id="visitsBody"></div>
+</details>
 <footer class="credit"><a href="https://db-ip.com" target="_blank" rel="noopener">IP Geolocation by DB-IP</a></footer>
 
 <script>
@@ -414,6 +434,33 @@ fetch("/api/stats").then(r => r.ok ? r.json() : null).then(d => {
   t.textContent = `${d.thoughts.toLocaleString()} thoughts let out so far.`;
   t.hidden = false;
 }).catch(() => {});
+
+// Count this visit, then show the public counter and where people are.
+const nf = n => Number(n).toLocaleString();
+const plural = (n, one, many) => `${nf(n)} ${n === 1 ? one : many}`;
+fetch("/api/visit", {method:"POST"}).catch(() => {}).finally(() => {
+  fetch("/api/views").then(r => r.ok ? r.json() : null).then(d => {
+    if(!d || !d.views) return;
+    const cs = d.countries || [];
+    const bits = [plural(d.views, "visit", "visits"), plural(d.visitors, "person", "people")];
+    if(cs.length) bits.push(plural(cs.length, "country", "countries"));
+    $("#visitsSum").innerHTML = esc(bits.join(" \u00b7 ")) +
+      `<span class="today">today: ${esc(plural(d.views_today, "visit", "visits"))}, ${esc(plural(d.visitors_today, "person", "people"))}</span>`;
+    let h = "";
+    if(cs.length){
+      h += `<table class="places-t"><caption>where people are</caption>
+        <thead><tr><th>country</th><th class="n">visited</th><th class="n">let it out</th></tr></thead><tbody>` +
+        cs.map(c => `<tr><td>${esc(c.country)}</td><td class="n">${nf(c.visitors)}</td><td class="n">${nf(c.posters)}</td></tr>`).join("") +
+        `</tbody></table>`;
+    }
+    if((d.cities || []).length){
+      h += `<div class="cities">cities: ${d.cities.map(c => esc(`${c.city} (${nf(c.visitors)})`)).join(", ")}</div>`;
+    }
+    h += `<div class="fine">counted once per person per day. no addresses are kept, and a city only shows once 3 or more people came from it.</div>`;
+    $("#visitsBody").innerHTML = h;
+    $("#visits").hidden = false;
+  }).catch(() => {});
+});
 
 grow(); ta.focus(); arrivedFrom();
 </script>

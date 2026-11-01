@@ -1,7 +1,9 @@
 from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import String, DateTime, Boolean, ForeignKey, UniqueConstraint, func, Index
+from datetime import date
+
+from sqlalchemy import String, DateTime, Date, Integer, Boolean, ForeignKey, UniqueConstraint, func, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -51,6 +53,19 @@ class Share(Base):
     thought_id: Mapped[int] = mapped_column(ForeignKey("thoughts.id", ondelete="CASCADE"), index=True)
     show_text: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Visit(Base):
+    """One row per visitor per day: powers the public view counter and the
+    "where people are" panel. Like thoughts, it keeps only a salted hash of the
+    IP (never the IP) plus the country/city it resolved to."""
+    __tablename__ = "visits"
+
+    day: Mapped[date] = mapped_column(Date, primary_key=True, server_default=func.current_date())
+    visitor_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    country: Mapped[str] = mapped_column(String(80), default="Unknown")
+    city: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    views: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
 
 
 # IVFFlat/HNSW index for fast cosine search as the table grows.

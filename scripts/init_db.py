@@ -15,6 +15,8 @@ def main():
             "ALTER TABLE thoughts ADD COLUMN IF NOT EXISTS is_seed boolean NOT NULL DEFAULT false"))
         conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_thoughts_is_seed ON thoughts (is_seed)"))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_visits_country ON visits (country)"))
     print("Database ready.")
 
 
