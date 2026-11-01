@@ -120,6 +120,11 @@ def analyse(db: Session, text_in: str, vec: list[float], visitor_hash: str):
                  if r["status"] == "ok"
                  and same_d <= r["distance"] < sugg_d]
 
+    # Has this same person said something with this meaning before? Lets the
+    # page say "you've said this before" instead of "you're the first".
+    said_before = any(r["distance"] < same_d and not r["is_seed"]
+                      and r["visitor_hash"] == visitor_hash for r in rows)
+
     # Count distinct people (not submissions) who share the exact thought.
     same_people = {r["visitor_hash"] for r in same_rows}
     countries, cities = _geo_breakdown(same_rows)
@@ -133,6 +138,7 @@ def analyse(db: Session, text_in: str, vec: list[float], visitor_hash: str):
     return {
         "cluster_id": cluster_id,
         "same_count": len(same_people),
+        "said_before": said_before,
         "countries": countries,
         "cities": cities,
         "suggestions": suggestions,

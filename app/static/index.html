@@ -245,6 +245,9 @@ function render(d){
   if(total > 1){
     parts.push(`<h2 class="lead">${total.toLocaleString()} people have felt this.</h2>`);
     parts.push(`<p class="sub">you're not alone.</p>`);
+  } else if(d.you_said_before){
+    parts.push(`<h2 class="lead">you've felt this before.</h2>`);
+    parts.push(`<p class="sub">no one else has said it here yet.</p>`);
   } else {
     parts.push(`<h2 class="lead">you're the first to say this.</h2>`);
     parts.push(`<p class="sub">whoever feels it next won't be.</p>`);

@@ -103,6 +103,7 @@ def submit(payload: ThoughtIn, request: Request, db: Session = Depends(get_db)):
         "you_said": text_in,
         "others_feeling_this": others,
         "total_including_you": others + 1,
+        "you_said_before": result["said_before"],
         "countries": result["countries"],
         "cities": result["cities"],
         "suggestions": result["suggestions"],
