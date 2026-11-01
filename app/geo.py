@@ -4,6 +4,7 @@ If no database is present, everything is recorded as Unknown — the service sti
 works, it just can't show a geographic breakdown until the db is added.
 """
 import hashlib
+import hmac
 import os
 import secrets
 
@@ -39,3 +40,8 @@ def locate(ip: str) -> tuple[str, str | None]:
 
 def visitor_hash(ip: str) -> str:
     return hashlib.sha256(f"{_SALT}:{ip}".encode()).hexdigest()
+
+
+def sign(message: str) -> str:
+    """Unforgeable token for `message` (used to prove authorship of a thought)."""
+    return hmac.new(_SALT.encode(), message.encode(), hashlib.sha256).hexdigest()[:32]

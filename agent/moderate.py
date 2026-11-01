@@ -78,7 +78,7 @@ def gauge():
         "COALESCE(EXTRACT(EPOCH FROM now() - min(created_at) "
         "  FILTER (WHERE status='pending')),0)::int, "
         "count(*) FILTER (WHERE created_at > now() - interval '10 minutes') "
-        "FROM thoughts"
+        "FROM thoughts WHERE NOT is_seed"
     )
     row = psql(sql).split("|")
     return int(row[0]), int(row[1]), int(row[2])
@@ -107,7 +107,7 @@ def fetch_pending():
 def classify(entries) -> list[dict]:
     prompt = PROMPT_HEAD + json.dumps(entries, ensure_ascii=False)
     res = subprocess.run(
-        [CLAUDE, "-p", prompt, "--model", MODEL],
+        [CLAUDE, "-p", prompt, "--model", MODEL, "--permission-mode", "default"],
         capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL,
     )
     if res.returncode != 0:

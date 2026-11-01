@@ -14,7 +14,7 @@ def _fetch_neighbours(db: Session, vec: list[float], limit: int = 2000):
     rows = db.execute(
         sql(
             """
-            SELECT id, text, country, city, visitor_hash, status,
+            SELECT id, text, country, city, visitor_hash, status, is_seed,
                    embedding <=> CAST(:v AS vector) AS distance
             FROM thoughts
             WHERE status <> 'blocked'
@@ -57,19 +57,24 @@ def _suggestions(sugg_rows, exclude_hash):
     We never surface a thought only one person has written, so no individual's
     personal disclosure is exposed. The shortest phrasing in a cluster is used
     as the label."""
-    clusters = defaultdict(lambda: {"people": set(), "label": None})
+    clusters = defaultdict(lambda: {"people": set(), "label": None, "seed": False})
     for r in sugg_rows:
         # Cluster suggestions by a coarse key (their own near-duplicates collapse
         # because they sit close in meaning; we approximate with lowercased text).
         key = r["text"].strip().lower()
         c = clusters[key]
-        c["people"].add(r["visitor_hash"])
+        if r["is_seed"]:
+            # Starter phrasing written by the operator: not a personal
+            # disclosure, so it may be shown, but it is not a person.
+            c["seed"] = True
+        else:
+            c["people"].add(r["visitor_hash"])
         if c["label"] is None or len(r["text"]) < len(c["label"]):
             c["label"] = r["text"].strip()
 
     out = []
     for c in clusters.values():
-        if len(c["people"]) < settings.city_k_anonymity:
+        if not c["seed"] and len(c["people"]) < settings.city_k_anonymity:
             continue
         label = c["label"]
         if has_crisis_keywords(label):  # never suggest a crisis phrasing to others
@@ -79,9 +84,24 @@ def _suggestions(sugg_rows, exclude_hash):
     return out[:6]
 
 
+def same_people_count(db: Session, vec: list[float]) -> int:
+    """Distinct real people (not seeds, not blocked) who share this thought."""
+    return db.execute(
+        sql(
+            """
+            SELECT COUNT(DISTINCT visitor_hash) FROM thoughts
+            WHERE status <> 'blocked' AND NOT is_seed
+              AND embedding <=> CAST(:v AS vector) < :d
+            """
+        ),
+        {"v": str(vec), "d": settings.same_distance},
+    ).scalar() or 0
+
+
 def analyse(db: Session, text_in: str, vec: list[float], visitor_hash: str):
     rows = _fetch_neighbours(db, vec)
-    same_rows = [r for r in rows if r["distance"] < settings.same_distance]
+    # Seeds are never people: they don't count and don't appear in geo.
+    same_rows = [r for r in rows if r["distance"] < settings.same_distance and not r["is_seed"]]
     # Suggestions show text to other people, so only moderated ('ok') thoughts
     # are eligible. Counts/geo may include 'pending' (not yet checked) so people
     # see each other immediately; a later 'blocked' verdict simply drops the row.

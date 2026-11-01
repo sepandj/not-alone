@@ -1,0 +1,8 @@
+[Unit]
+Description=Refresh the DB-IP city database for not-alone
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/not-alone/geoip-update.sh

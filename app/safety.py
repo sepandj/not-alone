@@ -36,7 +36,6 @@ RESOURCES = {
         {"where": "International", "name": "Find a Helpline", "contact": "https://findahelpline.com"},
         {"where": "US", "name": "988 Suicide & Crisis Lifeline", "contact": "call or text 988"},
         {"where": "UK & ROI", "name": "Samaritans", "contact": "call 116 123"},
-        {"where": "Iran", "name": "Social Emergency (Behzisti)", "contact": "call 123"},
     ],
 }
 

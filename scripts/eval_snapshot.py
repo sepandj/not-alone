@@ -21,26 +21,27 @@ def main(n: int = 40):
     try:
         recent = db.execute(sql(
             "SELECT id, text, status, country, city FROM thoughts "
-            "ORDER BY id DESC LIMIT :n"), {"n": n}).mappings().all()
+            "WHERE NOT is_seed ORDER BY id DESC LIMIT :n"), {"n": n}).mappings().all()
 
         out = []
         for r in recent:
             nbrs = db.execute(sql(
                 """
-                SELECT text, status,
+                SELECT text, status, is_seed,
                        embedding <=> (SELECT embedding FROM thoughts WHERE id=:id) AS dist
                 FROM thoughts
                 WHERE id <> :id AND status <> 'blocked'
                 ORDER BY dist LIMIT 6
                 """), {"id": r["id"]}).mappings().all()
             neighbours = [
-                {"text": n["text"], "dist": round(float(n["dist"]), 3),
+                {"text": n["text"], "dist": round(float(n["dist"]), 3), "seed": bool(n["is_seed"]),
                  "band": ("same" if n["dist"] < settings.same_distance
                           else "related" if n["dist"] < settings.suggest_distance
                           else "unrelated")}
                 for n in nbrs
             ]
-            same = sum(1 for n in neighbours if n["band"] == "same")
+            # seeds are starter suggestions, never counted as people
+            same = sum(1 for n in neighbours if n["band"] == "same" and not n["seed"])
             out.append({
                 "id": r["id"], "text": r["text"], "status": r["status"],
                 "match_count": same, "neighbours": neighbours,

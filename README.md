@@ -44,12 +44,27 @@ python scripts/init_db.py
 uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-## Location stats (optional)
+## Location stats
 
-City/country come from a free offline MaxMind **GeoLite2-City** database.
-Register at maxmind.com, download `GeoLite2-City.mmdb`, place it at
-`/opt/not-alone/GeoLite2-City.mmdb` (or set `GEOIP_DB_PATH`). Without it the
-service still works; locations are recorded as *Unknown*.
+City/country come from the free offline **DB-IP "IP to City Lite"** database
+(CC BY 4.0, no account needed; attribution link is in the page footer).
+`deploy/geoip-update.sh` downloads it to `/opt/not-alone/dbip-city-lite.mmdb`
+and `not-alone-geoip.timer` refreshes it weekly. Without the file, locations
+are recorded as *Unknown*.
+
+## Starter thoughts
+
+`scripts/seed.py` loads a few dozen common feelings (`is_seed = true`) so new
+visitors see related suggestions instead of an empty room. Seeds are never
+counted as people: not in "others felt this", the places line, or `/api/stats`.
+
+## Sharing
+
+After posting, a person can share a story-sized card and a link
+(`/f/<id>`) showing the live count of people who felt the same thing. Only the
+author can create a share. Their words appear on the public link only if they
+opt in and moderation has marked the thought `ok`; crisis thoughts can't be
+shared.
 
 ## Note
 

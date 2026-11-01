@@ -150,6 +150,24 @@
     border-bottom:1px solid var(--line); padding:5px 2px}
   .again:hover{color:var(--ink)}
 
+  /* ---- Share ---- */
+  .share{margin-top:38px; width:100%; display:flex; flex-direction:column; align-items:center}
+  .card{display:block; width:150px; aspect-ratio:9/16; border:1px solid var(--line); border-radius:6px;
+    background:var(--panel); object-fit:cover; box-shadow:0 1px 6px rgba(0,0,0,.08)}
+  .incl{margin-top:16px; font-family:var(--type); font-size:12.5px; letter-spacing:.03em; color:var(--muted);
+    display:flex; align-items:center; gap:8px; cursor:pointer}
+  .incl input{accent-color:var(--ink); width:16px; height:16px; margin:0}
+  .share .say{margin-top:18px}
+  .share-more{display:flex; gap:22px; justify-content:center; margin-top:16px}
+  .link-btn{background:none; border:0; cursor:pointer; font-family:var(--type); font-size:12px;
+    letter-spacing:.08em; color:var(--muted); border-bottom:1px solid var(--line); padding:5px 2px}
+  .link-btn:hover{color:var(--ink)}
+  .link-btn:disabled, .share .say:disabled{opacity:.4; cursor:default}
+  .share-note{margin-top:12px; font-family:var(--type); font-size:11.5px; color:var(--faint); line-height:1.7; min-height:1.7em; max-width:34ch}
+  .from{font-family:var(--serif); font-style:italic; font-size:19px; color:var(--muted); margin:0 0 22px; text-wrap:balance}
+  .credit{position:relative; z-index:1; margin-top:48px; font-family:var(--type); font-size:10.5px; color:var(--faint)}
+  .credit a{color:inherit}
+
   .fade{animation:fade .8s ease forwards}
   @keyframes fade{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
   @media (prefers-reduced-motion:reduce){.fade{animation:none} .composer{transition:none}}
@@ -160,6 +178,7 @@
   <div class="brand">you are not alone</div>
 
   <form class="composer" id="composer">
+    <p class="from" id="from" hidden></p>
     <h1 class="prompt">What's on your mind?</h1>
     <div class="lens">
       <textarea id="thought" rows="1" maxlength="280" placeholder="say it plainly, however it comes" aria-label="your thought"></textarea>
@@ -173,6 +192,7 @@
 
   <section class="response" id="response" hidden aria-live="polite"></section>
 </main>
+<footer class="credit"><a href="https://db-ip.com" target="_blank" rel="noopener">IP Geolocation by DB-IP</a></footer>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -212,6 +232,19 @@ function render(d){
   }
   const where = placesLine(d.countries, d.cities);
   if(where) parts.push(`<p class="where">${where}</p>`);
+  if(d.share){
+    parts.push(`<div class="share">
+      <div class="suggest-label">pass it on</div>
+      <img class="card" id="card" alt="your card">
+      <label class="incl"><input type="checkbox" id="incl" checked> include my words</label>
+      <button class="say" type="button" id="shareBtn" disabled>Share</button>
+      <div class="share-more">
+        <button class="link-btn" type="button" id="saveBtn" disabled>save image</button>
+        <button class="link-btn" type="button" id="copyBtn" disabled>copy link</button>
+      </div>
+      <div class="share-note" id="shareNote"></div>
+    </div>`);
+  }
   if(d.crisis){
     const lines = d.crisis.lines.map(l => {
       const c = l.contact.startsWith("http")
@@ -222,9 +255,9 @@ function render(d){
   }
   if(d.suggestions && d.suggestions.length){
     const pills = d.suggestions.map(s =>
-      `<button class="pill" type="button" data-t="${esc(s.thought)}">${esc(s.thought)}<span class="n">${s.people}</span></button>`
+      `<button class="pill" type="button" data-t="${esc(s.thought)}">${esc(s.thought)}${s.people ? `<span class="n">${s.people}</span>` : ""}</button>`
     ).join("");
-    parts.push(`<div class="suggest"><div class="suggest-label">others nearby also hold</div><div class="pills">${pills}</div></div>`);
+    parts.push(`<div class="suggest"><div class="suggest-label">close to what you said</div><div class="pills">${pills}</div></div>`);
   }
   parts.push(`<button class="again" type="button" id="again">say something else</button>`);
 
@@ -235,11 +268,99 @@ function render(d){
     ta.value = p.dataset.t; reset(false); grow(); submit();
   }));
   $("#again").addEventListener("click", () => reset(true));
+  if(d.share) setupShare(d.share);
   response.scrollIntoView({behavior:"smooth", block:"center"});
 }
 
+// ---- sharing ----
+let shareState = null;
+
+async function prepareShare(include){
+  const st = shareState, key = include ? "with" : "without";
+  if(st.ready[key]) return st.ready[key];
+  const body = JSON.stringify({thought_id: st.auth.thought_id, token: st.auth.token, show_text: include});
+  const opts = {method:"POST", headers:{"content-type":"application/json"}, body};
+  const [link, card] = await Promise.all([
+    fetch("/api/share", opts).then(r => { if(!r.ok) throw 0; return r.json(); }),
+    fetch("/api/card", opts).then(r => { if(!r.ok) throw 0; return r.blob(); }),
+  ]);
+  const ready = {link, blob: card, src: URL.createObjectURL(card)};
+  st.ready[key] = ready;
+  return ready;
+}
+
+async function showShare(){
+  const include = $("#incl").checked, note = $("#shareNote");
+  ["#shareBtn","#saveBtn","#copyBtn"].forEach(s => $(s).disabled = true);
+  note.textContent = "";
+  try{
+    const r = await prepareShare(include);
+    if(include !== $("#incl").checked) return;  // toggled again meanwhile
+    $("#card").src = r.src;
+    ["#shareBtn","#saveBtn","#copyBtn"].forEach(s => $(s).disabled = false);
+    if(r.link.words === "pending")
+      note.textContent = "the link shows your words once they've been checked, usually within a few minutes.";
+  }catch(e){
+    note.textContent = "sharing isn't available right now.";
+  }
+}
+
+function setupShare(auth){
+  shareState = {auth, ready:{}};
+  $("#incl").addEventListener("change", showShare);
+  $("#shareBtn").addEventListener("click", async () => {
+    const r = shareState.ready[$("#incl").checked ? "with" : "without"];
+    if(!r) return;
+    const url = r.link.url, text = "you are not alone.";
+    const file = new File([r.blob], "not-alone.png", {type:"image/png"});
+    try{
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        await navigator.share({files:[file], text: `${text} ${url}`});
+      } else if(navigator.share){
+        await navigator.share({text, url});
+      } else {
+        await navigator.clipboard.writeText(url);
+        $("#shareNote").textContent = "link copied.";
+      }
+    }catch(e){ /* closed the share sheet */ }
+  });
+  $("#saveBtn").addEventListener("click", () => {
+    const r = shareState.ready[$("#incl").checked ? "with" : "without"];
+    if(!r) return;
+    const a = document.createElement("a");
+    a.href = r.src; a.download = "not-alone.png"; document.body.appendChild(a); a.click(); a.remove();
+  });
+  $("#copyBtn").addEventListener("click", async () => {
+    const r = shareState.ready[$("#incl").checked ? "with" : "without"];
+    if(!r) return;
+    try{ await navigator.clipboard.writeText(r.link.url); $("#shareNote").textContent = "link copied."; }
+    catch(e){ $("#shareNote").textContent = r.link.url; }
+  });
+  showShare();
+}
+
+// Arriving from someone's shared link: offer their words, ready to send.
+async function arrivedFrom(){
+  const id = new URLSearchParams(location.search).get("from");
+  if(!id) return;
+  history.replaceState(null, "", "/");
+  try{
+    const r = await fetch(`/api/share/${encodeURIComponent(id)}`);
+    if(!r.ok) return;
+    const d = await r.json(), from = $("#from");
+    if(d.text){
+      ta.value = d.text; grow();
+      from.textContent = "someone shared this. if you feel it too, let it out.";
+    } else {
+      from.textContent = "someone said what was on their mind here, and found they weren't alone.";
+    }
+    from.hidden = false;
+  }catch(e){}
+}
+
 function reset(focus){
-  response.hidden = true; response.innerHTML = "";
+  response.hidden = true; response.innerHTML = ""; shareState = null;
+  $("#from").hidden = true;
   composer.style.opacity = "";
   if(focus){ ta.value=""; grow(); ta.focus(); }
 }
@@ -262,7 +383,7 @@ async function submit(){
   btn.disabled = false;
 }
 
-grow(); ta.focus();
+grow(); ta.focus(); arrivedFrom();
 </script>
 </body>
 </html>

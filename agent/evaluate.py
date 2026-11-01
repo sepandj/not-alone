@@ -68,7 +68,7 @@ def gauge(last_id):
         f"count(*) FILTER (WHERE id > {last_id}), "
         f"COALESCE(EXTRACT(EPOCH FROM now()-min(created_at) FILTER (WHERE id > {last_id})),0)::int, "
         "count(*) FILTER (WHERE created_at > now()-interval '10 minutes') "
-        "FROM thoughts", want=True).split("|")
+        "FROM thoughts WHERE NOT is_seed", want=True).split("|")
     return int(row[0]), int(row[1]), int(row[2]), int(row[3])
 
 
@@ -130,7 +130,7 @@ def snapshot():
 
 def review(data):
     prompt = REVIEW_PROMPT + json.dumps(data, ensure_ascii=False)
-    r = subprocess.run([CLAUDE, "-p", prompt, "--model", MODEL],
+    r = subprocess.run([CLAUDE, "-p", prompt, "--model", MODEL, "--permission-mode", "default"],
                        capture_output=True, text=True, timeout=240, stdin=subprocess.DEVNULL)
     if r.returncode != 0:
         raise RuntimeError(f"claude: {r.stderr.strip()[:300]}")

@@ -6,7 +6,7 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://notalone:notalone@localhost:5432/notalone"
 
-    # Sentence embedding model (multilingual, CPU-friendly, incl. Persian).
+    # Sentence embedding model (multilingual, CPU-friendly).
     # mpnet-base separates meaning noticeably better than the MiniLM sibling and
     # still runs comfortably on CPU. 768-dimensional embeddings.
     embedding_model: str = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
@@ -29,9 +29,13 @@ class Settings(BaseSettings):
     # from it share the thought. Smaller groups roll up into the country total.
     city_k_anonymity: int = 3
 
-    # Optional MaxMind GeoLite2-City.mmdb for city/country from IP.
-    # Register free at maxmind.com; without it, location is recorded as Unknown.
-    geoip_db_path: str = "/opt/not-alone/GeoLite2-City.mmdb"
+    # City/country from IP: DB-IP "IP to City Lite" (free, CC BY 4.0, no account),
+    # refreshed weekly by deploy/geoip-update.sh. A MaxMind GeoLite2-City.mmdb
+    # also works here. Without a file, location is recorded as Unknown.
+    geoip_db_path: str = "/opt/not-alone/dbip-city-lite.mmdb"
+
+    # Public base URL, used in share links and link previews.
+    public_url: str = "https://notalone.sepand.dev"
 
     max_thought_chars: int = 280
 

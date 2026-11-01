@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import String, DateTime, func, Index
+from sqlalchemy import String, DateTime, Boolean, ForeignKey, UniqueConstraint, func, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -32,6 +32,24 @@ class Thought(Base):
     # for k-anonymity without ever storing an IP address.
     visitor_hash: Mapped[str] = mapped_column(String(64), index=True)
 
+    # Starter thoughts written by the operator so a new visitor sees related
+    # feelings instead of an empty room. They are NEVER counted as people (not
+    # in "others felt this", geo, or stats); they only appear as suggestions.
+    is_seed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", index=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Share(Base):
+    """A public link to one thought's live count. Only the person who wrote the
+    thought can create one (see main.share_token). The words themselves are
+    shown only if the author opted in AND moderation has marked them 'ok'."""
+    __tablename__ = "shares"
+    __table_args__ = (UniqueConstraint("thought_id", "show_text"),)
+
+    id: Mapped[str] = mapped_column(String(16), primary_key=True)
+    thought_id: Mapped[int] = mapped_column(ForeignKey("thoughts.id", ondelete="CASCADE"), index=True)
+    show_text: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
