@@ -57,6 +57,7 @@
   }
 
   *{box-sizing:border-box}
+  [hidden]{display:none !important}
   html,body{min-height:100%}
   body{
     margin:0; background:var(--bg); color:var(--ink);
@@ -131,29 +132,12 @@
 
   /* ---- Response ---- */
   .response{display:flex; flex-direction:column; align-items:center}
-  .echo{
-    font-family:var(--serif); font-style:italic; font-weight:400; font-size:20px;
-    color:var(--muted); text-wrap:balance; margin:0 0 32px; max-width:30ch; line-height:1.5;
-  }
   .lead{
     font-family:var(--serif); font-weight:400; font-size:clamp(30px,9vw,40px);
     line-height:1.18; text-wrap:balance; margin:0 0 10px; color:var(--ink);
   }
-  .count-num{font-weight:500; border-bottom:2px solid var(--line); padding-bottom:1px}
   .sub{font-family:var(--serif); font-weight:400; font-size:20px; color:var(--muted);
     text-wrap:balance; margin:0 auto; max-width:30ch}
-  .where{font-family:var(--type); font-size:12.5px; letter-spacing:.03em; color:var(--muted);
-    margin:26px auto 0; max-width:36ch; line-height:1.9}
-
-  .suggest{margin-top:38px; width:100%}
-  .suggest-label{font-family:var(--type); font-size:11px; letter-spacing:.22em; text-transform:uppercase;
-    color:var(--faint); margin-bottom:16px}
-  .pills{display:flex; flex-wrap:wrap; gap:10px; justify-content:center}
-  .pill{font-family:var(--serif); font-style:italic; font-weight:400; font-size:17px;
-    color:var(--ink); background:transparent; border:1px solid var(--line); border-radius:3px;
-    padding:9px 15px; cursor:pointer; transition:border-color .2s ease}
-  .pill:hover{border-color:var(--muted)}
-  .pill .n{font-family:var(--type); font-style:normal; font-size:11px; color:var(--faint); margin-left:9px}
 
   .care{margin-top:38px; width:100%; background:var(--panel); border:1px solid var(--line);
     border-radius:8px; padding:22px; text-align:center}
@@ -163,14 +147,20 @@
   .care b{color:var(--ink)}
   .care a{color:var(--ink); text-decoration:underline}
 
-  .again{margin:44px auto 0; background:none; border:0; cursor:pointer;
-    font-family:var(--type); font-size:12px; letter-spacing:.08em; color:var(--muted);
-    border-bottom:1px solid var(--line); padding:5px 2px}
-  .again:hover{color:var(--ink)}
+  /* While a result is open: start at the top, and keep a close control
+     pinned there so the way back is always in reach. */
+  body.result{justify-content:flex-start; padding-top:calc(max(12px,env(safe-area-inset-top,0px)) + 64px)}
+  .close{position:fixed; z-index:5; top:max(12px,env(safe-area-inset-top,0px)); right:max(12px,env(safe-area-inset-right,0px));
+    display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:0 16px;
+    font-family:var(--type); font-size:13px; letter-spacing:.08em; color:var(--ink);
+    background:var(--panel); border:1px solid var(--line); border-radius:999px; cursor:pointer;
+    box-shadow:0 1px 6px rgba(0,0,0,.08)}
+  .close:hover{border-color:var(--muted)}
+  .close svg{width:13px; height:13px}
 
   /* ---- Share ---- */
-  .share{margin-top:38px; width:100%; display:flex; flex-direction:column; align-items:center}
-  .card{display:block; width:150px; aspect-ratio:9/16; border:1px solid var(--line); border-radius:6px;
+  .share{margin-top:30px; width:100%; display:flex; flex-direction:column; align-items:center}
+  .card{display:block; width:180px; aspect-ratio:9/16; border:1px solid var(--line); border-radius:6px;
     background:var(--panel); object-fit:cover; box-shadow:0 1px 6px rgba(0,0,0,.08)}
   .incl{margin-top:16px; font-family:var(--type); font-size:12.5px; letter-spacing:.03em; color:var(--muted);
     display:flex; align-items:center; gap:8px; cursor:pointer}
@@ -227,6 +217,9 @@
   </form>
 
   <section class="response" id="response" hidden aria-live="polite"></section>
+  <button class="close" id="close" type="button" hidden aria-label="close and say something else">
+    <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12"/></svg>close
+  </button>
 </main>
 <details class="visits" id="visits" hidden>
   <summary id="visitsSum"></summary>
@@ -247,34 +240,25 @@ ta.addEventListener("keydown", e => {
 
 function esc(s){ return s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 
-function placesLine(countries, cities){
-  const names = (countries||[]).filter(c => c.country && c.country!=="Unknown").map(c=>c.country);
-  if(!names.length) return "";
-  let where;
-  if(names.length===1) where = names[0];
-  else if(names.length===2) where = names[0]+" and "+names[1];
-  else where = names[0]+", "+names[1]+", and "+(names.length-2)+" other place"+(names.length-2>1?"s":"");
-  const city = (cities||[]).find(c => c.city && c.country!=="Unknown");
-  const near = city ? `, including someone near ${esc(city.city)}` : "";
-  return `with people in ${esc(where)}${near}`;
-}
-
 function render(d){
-  const others = d.others_feeling_this, parts = [];
-  parts.push(`<p class="echo">${esc(d.you_said)}</p>`);
-  if(others > 0){
-    const ppl = others===1 ? "one other person has" : `<span class="count-num">${others}</span> others have`;
-    parts.push(`<h2 class="lead">you're not alone.</h2>`);
-    parts.push(`<p class="sub">${ppl} felt this too.</p>`);
+  const total = d.total_including_you, parts = [];
+  if(total > 1){
+    parts.push(`<h2 class="lead">${total.toLocaleString()} people have felt this.</h2>`);
+    parts.push(`<p class="sub">you're not alone.</p>`);
   } else {
-    parts.push(`<h2 class="lead">you're the first to say this here.</h2>`);
-    parts.push(`<p class="sub">by putting it into words, you made it easier for whoever feels it next.</p>`);
+    parts.push(`<h2 class="lead">you're the first to say this.</h2>`);
+    parts.push(`<p class="sub">whoever feels it next won't be.</p>`);
   }
-  const where = placesLine(d.countries, d.cities);
-  if(where) parts.push(`<p class="where">${where}</p>`);
+  if(d.crisis){
+    const lines = d.crisis.lines.map(l => {
+      const c = l.contact.startsWith("http")
+        ? `<a href="${esc(l.contact)}" target="_blank" rel="noopener">${esc(l.contact)}</a>` : esc(l.contact);
+      return `<li><b>${esc(l.where)}:</b> ${esc(l.name)}, ${c}</li>`;
+    }).join("");
+    parts.push(`<div class="care"><p>${esc(d.crisis.message)}</p><ul>${lines}</ul></div>`);
+  }
   if(d.share){
     parts.push(`<div class="share">
-      <div class="suggest-label">pass it on</div>
       <img class="card" id="card" alt="your card">
       <label class="incl"><input type="checkbox" id="incl" checked> include my words</label>
       <button class="say" type="button" id="shareBtn" disabled>Share</button>
@@ -285,32 +269,26 @@ function render(d){
       <div class="share-note" id="shareNote"></div>
     </div>`);
   }
-  if(d.crisis){
-    const lines = d.crisis.lines.map(l => {
-      const c = l.contact.startsWith("http")
-        ? `<a href="${esc(l.contact)}" target="_blank" rel="noopener">${esc(l.contact)}</a>` : esc(l.contact);
-      return `<li><b>${esc(l.where)}:</b> ${esc(l.name)}, ${c}</li>`;
-    }).join("");
-    parts.push(`<div class="care"><p>${esc(d.crisis.message)}</p><ul>${lines}</ul></div>`);
-  }
-  if(d.suggestions && d.suggestions.length){
-    const pills = d.suggestions.map(s =>
-      `<button class="pill" type="button" data-t="${esc(s.thought)}">${esc(s.thought)}${s.people ? `<span class="n">${s.people}</span>` : ""}</button>`
-    ).join("");
-    parts.push(`<div class="suggest"><div class="suggest-label">close to what you said</div><div class="pills">${pills}</div></div>`);
-  }
-  parts.push(`<button class="again" type="button" id="again">say something else</button>`);
 
   response.innerHTML = parts.join("");
+  composer.hidden = true;
+  document.body.classList.add("result");
+  $("#close").hidden = false;
   response.classList.remove("fade"); void response.offsetWidth; response.classList.add("fade");
   response.hidden = false;
-  response.querySelectorAll(".pill").forEach(p => p.addEventListener("click", () => {
-    ta.value = p.dataset.t; reset(false); grow(); submit();
-  }));
-  $("#again").addEventListener("click", () => reset(true));
   if(d.share) setupShare(d.share);
-  response.scrollIntoView({behavior:"smooth", block:"center"});
+  // The phone's back button closes the result instead of leaving the site.
+  if(!(history.state && history.state.result)) history.pushState({result:true}, "", "/");
+  window.scrollTo({top:0});
 }
+
+function closeResult(){
+  if(history.state && history.state.result) history.back();  // popstate resets
+  else reset(true);
+}
+$("#close").addEventListener("click", closeResult);
+document.addEventListener("keydown", e => { if(e.key === "Escape" && !response.hidden) closeResult(); });
+window.addEventListener("popstate", () => { if(!response.hidden) reset(true); });
 
 // ---- sharing ----
 let shareState = null;
@@ -400,8 +378,9 @@ async function arrivedFrom(){
 
 function reset(focus){
   response.hidden = true; response.innerHTML = ""; shareState = null;
-  $("#from").hidden = true;
-  composer.style.opacity = "";
+  $("#from").hidden = true; $("#close").hidden = true;
+  document.body.classList.remove("result");
+  composer.hidden = false; composer.style.opacity = ""; $("#send").disabled = false;
   if(focus){ ta.value=""; grow(); ta.focus(); }
 }
 
