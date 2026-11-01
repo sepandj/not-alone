@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     # surface as suggestions below suggest_distance.
     same_distance: float = 0.45
     suggest_distance: float = 0.65
+    # Tighter cut for merging wordings of one feeling into a single suggestion
+    # (complete linkage: every member within this of every other). Kept well
+    # inside same_distance so "I'm so bored" and "I can't sleep" stay separate.
+    cluster_distance: float = 0.30
 
     # Privacy: a city is only ever shown once at least this many distinct people
     # from it share the thought. Smaller groups roll up into the country total.

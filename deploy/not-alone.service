@@ -5,9 +5,20 @@ Wants=postgresql.service redis-server.service
 
 [Service]
 Type=simple
+# Runs as its own unprivileged user. Code, model and geo files are root-owned
+# and read-only to it; it can read .env (root:notalone 0640) and nothing in
+# /opt/not-alone is writable by it.
+User=notalone
+Group=notalone
 WorkingDirectory=/opt/not-alone/app
 Environment=LANG=en_US.UTF-8
 Environment=PYTHONPATH=/opt/not-alone/app
+# The model is already downloaded; never try to fetch or write to the cache.
+Environment=HF_HUB_OFFLINE=1
+Environment=TRANSFORMERS_OFFLINE=1
+Environment=HOME=/var/cache/not-alone
+Environment=XDG_CACHE_HOME=/var/cache/not-alone
+CacheDirectory=not-alone
 # 4 workers x 2 model threads fits 8 cores (measured best: ~27 posts/s).
 Environment=EMBED_THREADS=2
 EnvironmentFile=/opt/not-alone/app/.env
@@ -17,7 +28,16 @@ RestartSec=3
 # Hardening
 NoNewPrivileges=true
 PrivateTmp=true
-ProtectSystem=full
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+UMask=0077
 
 [Install]
 WantedBy=multi-user.target

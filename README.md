@@ -31,8 +31,9 @@ so you can see you're not alone.
 - **FastAPI** + **uvicorn** web app (`app/`)
 - **PostgreSQL 17** + **pgvector** for storage and similarity search
 - **sentence-transformers** for embeddings (CPU)
-- Runs as a **systemd** service inside an unprivileged LXC container
-- Intended to sit behind **Cloudflare Tunnel** (no open inbound ports)
+- Runs as a **systemd** service inside an unprivileged LXC container, as its
+  own unprivileged `notalone` user with a read-only filesystem view
+- **Caddy** in front for HTTPS (Let's Encrypt over port 443)
 
 ## Run locally (inside the server container)
 
@@ -51,6 +52,24 @@ City/country come from the free offline **DB-IP "IP to City Lite"** database
 `deploy/geoip-update.sh` downloads it to `/opt/not-alone/dbip-city-lite.mmdb`
 and `not-alone-geoip.timer` refreshes it weekly. Without the file, locations
 are recorded as *Unknown*.
+
+## Nightly tuning (no LLM)
+
+`scripts/autotune.py` runs at 03:30 (`not-alone-autotune.timer`):
+
+- **Thresholds.** Looks at how far each real thought is from the nearest thought
+  by someone else and finds the dip between "same feeling" and "unrelated".
+  It moves `same_distance` toward that dip by at most 0.01 a night, within
+  0.38-0.52, and only once 150+ people have posted. A change is kept only if
+  the hand-labeled pairs in `scripts/tuning_pairs.json` still score as well as
+  the calibrated defaults and typo'd thoughts still match their originals 85%
+  of the time. Every run is logged in the `tuning` table with its reason.
+- **Meaning-groups.** Thoughts that are rewordings of each other (every member
+  within 0.30) are grouped so suggestions show one entry with a combined count.
+  Each starter phrasing stays its own group. New posts join their nearest group
+  right away.
+
+Dry run: `PYTHONPATH=. venv/bin/python scripts/autotune.py --dry-run`
 
 ## Starter thoughts
 

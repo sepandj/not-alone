@@ -3,7 +3,8 @@ from datetime import datetime
 from pgvector.sqlalchemy import Vector
 from datetime import date
 
-from sqlalchemy import String, DateTime, Date, Integer, Boolean, ForeignKey, UniqueConstraint, func, Index
+from sqlalchemy import String, DateTime, Date, Integer, Float, Boolean, ForeignKey, UniqueConstraint, func, Index
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -39,7 +40,38 @@ class Thought(Base):
     # in "others felt this", geo, or stats); they only appear as suggestions.
     is_seed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", index=True)
 
+    # Group of thoughts that mean the same thing, rebuilt nightly by
+    # scripts/autotune.py. Lets suggestions merge "I feel so alone" and "i feel
+    # so alone." into one entry with one combined count. New thoughts join their
+    # nearest group when they are posted; NULL until then.
+    cluster_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Cluster(Base):
+    """One meaning-group of thoughts (see Thought.cluster_id). The label is the
+    phrasing shown as a suggestion: a starter (seed) phrasing when the group has
+    one, otherwise the moderated member closest to the group's centre."""
+    __tablename__ = "clusters"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    label: Mapped[str | None] = mapped_column(String(280), nullable=True)
+    people: Mapped[int] = mapped_column(Integer, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Tuning(Base):
+    """History of matching thresholds chosen by the nightly tuner. The app uses
+    the newest applied row; with none, it uses the defaults in config.py."""
+    __tablename__ = "tuning"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    same_distance: Mapped[float] = mapped_column(Float)
+    suggest_distance: Mapped[float] = mapped_column(Float)
+    applied: Mapped[bool] = mapped_column(Boolean, default=False)
+    report: Mapped[dict] = mapped_column(JSONB, default=dict)
 
 
 class Share(Base):

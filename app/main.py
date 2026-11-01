@@ -92,7 +92,8 @@ def submit(payload: ThoughtIn, request: Request, db: Session = Depends(get_db)):
     crisis = is_crisis(text_in, vec)
 
     # Store the new thought (this person now counts toward future matches).
-    t = Thought(text=text_in, embedding=vec, country=country, city=city, visitor_hash=vhash)
+    t = Thought(text=text_in, embedding=vec, country=country, city=city, visitor_hash=vhash,
+                cluster_id=result["cluster_id"])
     db.add(t)
     db.commit()
 

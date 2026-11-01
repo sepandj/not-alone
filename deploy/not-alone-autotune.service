@@ -1,0 +1,31 @@
+[Unit]
+Description=not-alone nightly threshold tuning and meaning-groups
+After=postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+User=notalone
+Group=notalone
+WorkingDirectory=/opt/not-alone/app
+Environment=LANG=en_US.UTF-8
+Environment=PYTHONPATH=/opt/not-alone/app
+Environment=HF_HUB_OFFLINE=1
+Environment=TRANSFORMERS_OFFLINE=1
+Environment=HOME=/var/cache/not-alone
+Environment=XDG_CACHE_HOME=/var/cache/not-alone
+CacheDirectory=not-alone
+Environment=EMBED_THREADS=2
+EnvironmentFile=/opt/not-alone/app/.env
+ExecStart=/opt/not-alone/app/venv/bin/python scripts/autotune.py
+# Low priority so it never slows the site down.
+Nice=15
+CPUSchedulingPolicy=batch
+IOSchedulingClass=idle
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+CapabilityBoundingSet=
+UMask=0077

@@ -12,11 +12,12 @@ import sys
 
 from sqlalchemy import text as sql
 
-from app.config import settings
+from app.tuning import thresholds
 from app.db import SessionLocal
 
 
 def main(n: int = 40):
+    same_d, sugg_d = thresholds()
     db = SessionLocal()
     try:
         recent = db.execute(sql(
@@ -35,8 +36,8 @@ def main(n: int = 40):
                 """), {"id": r["id"]}).mappings().all()
             neighbours = [
                 {"text": n["text"], "dist": round(float(n["dist"]), 3), "seed": bool(n["is_seed"]),
-                 "band": ("same" if n["dist"] < settings.same_distance
-                          else "related" if n["dist"] < settings.suggest_distance
+                 "band": ("same" if n["dist"] < same_d
+                          else "related" if n["dist"] < sugg_d
                           else "unrelated")}
                 for n in nbrs
             ]
@@ -48,7 +49,7 @@ def main(n: int = 40):
             })
 
         print(json.dumps({
-            "thresholds": {"same": settings.same_distance, "related": settings.suggest_distance},
+            "thresholds": {"same": same_d, "related": sugg_d},
             "sample": out,
         }, ensure_ascii=False))
     finally:
