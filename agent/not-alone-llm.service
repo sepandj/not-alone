@@ -1,0 +1,12 @@
+[Unit]
+Description=Local LLM (Qwen2.5-3B, Vulkan GPU) for not-alone moderation pre-filter
+After=network.target
+
+[Service]
+ExecStart=/root/llama.cpp/build/bin/llama-server -m /root/models/Qwen2.5-3B-Instruct-Q4_K_M.gguf --host 127.0.0.1 --port 8081 -ngl 99 --device Vulkan0 -c 4096 -np 1 --no-webui
+Restart=on-failure
+RestartSec=5
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

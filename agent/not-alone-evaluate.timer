@@ -1,10 +1,10 @@
 [Unit]
-Description=Tick the not-alone improvement agent; it self-gates on input frequency
+Description=Run the not-alone improvement agent every 12 hours
 
 [Timer]
-OnBootSec=3min
-OnUnitActiveSec=2min
-AccuracySec=15s
+OnCalendar=*-*-* 00,12:00:00
+Persistent=true
+RandomizedDelaySec=5min
 
 [Install]
 WantedBy=timers.target

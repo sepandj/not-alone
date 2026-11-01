@@ -14,9 +14,14 @@ user tried to smuggle instructions inside their thought, the worst case is one
 mislabelled row — no code is generated, run, or deployed from user input.
 """
 import json
+import os
 import re
 import subprocess
 import sys
+import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import local_llm  # noqa: E402
 
 CTID = "100"
 MODEL = "claude-haiku-5-5"
@@ -36,6 +41,14 @@ SHORT_WAIT = 120     # quiet: process once the oldest pending is ~2 min old
 MAX_WAIT = 600       # busy: never let a pending thought wait longer than 10 min
 MAX_BATCH = 150     # always flush when this many are waiting (one Claude call each)
 MAX_ROUNDS = 5      # at most this many batches per one-minute tick (~750/min)
+
+# --- Local GPU pre-filter ----------------------------------------------------
+# The local model may only APPROVE, and only when it is very sure and no red flag
+# fires. Everything else (doubt, "block", red flags, server down, out of time)
+# goes to Claude Haiku as before. It never blocks: it misreads people's own
+# suicidal feelings as harmful, and hiding those would be the worst failure.
+LOCAL_MIN_P_OK = 0.98
+LOCAL_BUDGET_S = 40   # per tick; whatever isn't pre-screened in time goes to Claude
 
 PROMPT_HEAD = """You are a safety classifier for an anonymous "you are not alone" \
 support service where people share one short thought or feeling.
@@ -120,6 +133,27 @@ def classify(entries) -> list[dict]:
     return json.loads(m.group(0))
 
 
+def prefilter(entries, deadline):
+    """Split entries into (approved_ids, for_claude) using the local model."""
+    approved, rest = [], []
+    for i, e in enumerate(entries):
+        if time.monotonic() > deadline:
+            rest.extend(entries[i:])
+            break
+        if local_llm.red_flag(e["text"]):
+            rest.append(e)
+            continue
+        p = local_llm.p_ok(e["text"])
+        if p is None:                 # local server down: Claude for the rest
+            rest.extend(entries[i:])
+            break
+        if p >= LOCAL_MIN_P_OK:
+            approved.append(e["id"])
+        else:
+            rest.append(e)
+    return approved, rest
+
+
 def esc(s: str) -> str:
     return s.replace("'", "''")[:200]
 
@@ -150,14 +184,21 @@ def main():
         return  # not yet -> no Claude call, no cost
     # Under heavy load, clear several full batches per tick (~10 s each) so the
     # backlog can't grow without bound; the timer fires again in a minute.
+    deadline = time.monotonic() + LOCAL_BUDGET_S
     for _ in range(MAX_ROUNDS):
         entries = fetch_pending()
         if not entries:
             return
-        valid_ids = {e["id"] for e in entries}
-        verdicts = classify(entries)
-        ok, blocked = apply_verdicts(verdicts, valid_ids)
-        print(f"moderated {len(entries)} (rate {rate}/10min): {ok} ok, {blocked} blocked", file=sys.stderr)
+        approved, for_claude = prefilter(entries, deadline)
+        if approved:
+            psql("UPDATE thoughts SET status='ok',mod_reason='local' "
+                 f"WHERE status='pending' AND id IN ({','.join(map(str, approved))})")
+        ok = blocked = 0
+        if for_claude:
+            verdicts = classify(for_claude)
+            ok, blocked = apply_verdicts(verdicts, {e["id"] for e in for_claude})
+        print(f"moderated {len(entries)} (rate {rate}/10min): {len(approved)} ok by local GPU, "
+              f"{len(for_claude)} to Claude -> {ok} ok, {blocked} blocked", file=sys.stderr)
         if len(entries) < MAX_BATCH:
             return
 

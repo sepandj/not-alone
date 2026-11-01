@@ -31,22 +31,14 @@ from email.message import EmailMessage
 CTID = "100"
 MODEL = os.environ.get("EVAL_MODEL", "claude-haiku-5-5")
 CLAUDE = "/root/.local/bin/claude"
-SAMPLE = 40
+SAMPLE = 120   # 12h of posts can be many; review the most recent 120
 MAIL_CONF = "/root/.not-alone-mail"   # KEY=VALUE: MAIL_HOST/PORT/USER/PASS/FROM/TO
 LOG = "/root/not-alone/agent/evaluate.log"
 STATE = "/root/not-alone/agent/evaluate.state"   # last reviewed thought id
 
-# --- Dynamic trigger, driven by input frequency ----------------------------
-# The timer ticks often, but we only spend a full review when it's worth it:
-#   quiet (few new inputs)  -> review quickly, within a few minutes, so fixes and
-#                              the email arrive fast.
-#   busy  (inputs piling up) -> wait longer to gather a bigger batch ("capture
-#                              more data" per review), up to MAX_WAIT, and always
-#                              run once NEW_BATCH new thoughts have accumulated.
-LOW_RATE = 10        # new inputs in last 10 min at/below which we treat as quiet
-SHORT_WAIT = 180     # quiet: review once the oldest unreviewed thought is ~3 min old
-MAX_WAIT = 1800      # busy: never wait more than 30 min to review
-NEW_BATCH = 40       # always review once this many new thoughts have piled up
+# --- Schedule ------------------------------------------------------------
+# Runs every 12 hours from not-alone-evaluate.timer. A run is skipped when no new
+# thoughts arrived since the last review, so a quiet half-day costs nothing.
 
 
 def _load_last_id():
@@ -61,24 +53,12 @@ def _save_last_id(v):
         f.write(str(v))
 
 
-def gauge(last_id):
-    """(max_id, new_since_last, oldest_new_age_s, rate_last_10min)."""
-    row = psql(
-        "SELECT COALESCE(max(id),0), "
-        f"count(*) FILTER (WHERE id > {last_id}), "
-        f"COALESCE(EXTRACT(EPOCH FROM now()-min(created_at) FILTER (WHERE id > {last_id})),0)::int, "
-        "count(*) FILTER (WHERE created_at > now()-interval '10 minutes') "
-        "FROM thoughts WHERE NOT is_seed", want=True).split("|")
-    return int(row[0]), int(row[1]), int(row[2]), int(row[3])
-
-
-def should_run(new_count, oldest_age, rate):
-    if new_count == 0:
-        return False
-    if new_count >= NEW_BATCH:
-        return True
-    wait = SHORT_WAIT if rate <= LOW_RATE else min(MAX_WAIT, int(SHORT_WAIT * rate / LOW_RATE))
-    return oldest_age >= wait
+def new_since(last_id):
+    """(max_id, new thoughts since the last review)."""
+    row = psql("SELECT COALESCE(max(id),0), "
+               f"count(*) FILTER (WHERE id > {int(last_id)}) "
+               "FROM thoughts WHERE NOT is_seed", want=True).split("|")
+    return int(row[0]), int(row[1])
 
 REVIEW_PROMPT = """You are the quality reviewer for "not-alone", an anonymous \
 service where people share one short feeling and are shown how many OTHERS have \
@@ -209,10 +189,9 @@ def send_email(subject, body):
 
 def main():
     last_id = _load_last_id()
-    max_id, new_count, oldest_age, rate = gauge(last_id)
-    if not should_run(new_count, oldest_age, rate):
-        if new_count:
-            print(f"holding: {new_count} new (oldest {oldest_age}s, rate {rate}/10min)", file=sys.stderr)
+    max_id, new_count = new_since(last_id)
+    if new_count == 0:
+        print("no new thoughts since last review; skipping", file=sys.stderr)
         return
     data = snapshot()
     if not data["sample"]:

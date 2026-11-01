@@ -66,6 +66,19 @@ author can create a share. Their words appear on the public link only if they
 opt in and moderation has marked the thought `ok`; crisis thoughts can't be
 shared.
 
+## Moderation and review agents (run on the host)
+
+- `agent/moderate.py` (every minute): new thoughts are first screened by a
+  local model (Qwen2.5-3B via llama.cpp on the GPU, `agent/not-alone-llm.service`,
+  127.0.0.1:8081). The local model may only **approve**, and only at
+  `p(ok) >= 0.98` with no red flags (links, phone numbers, keyboard mash,
+  instruction-like text). Everything else goes to Claude Haiku, which decides
+  ok/block. If the local server is down, everything goes to Claude.
+  Test set: `agent/tests/moderation_cases.json`.
+- `agent/evaluate.py` (every 12 hours, `agent/not-alone-evaluate.timer`):
+  reviews recent responses, re-moderates mistakes, and emails code suggestions.
+  Skips when nothing new was posted. Its log quotes posts and is not committed.
+
 ## Note
 
 This is a supportive, anonymous experiment — not a medical or crisis service.
