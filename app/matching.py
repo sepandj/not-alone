@@ -14,10 +14,10 @@ def _fetch_neighbours(db: Session, vec: list[float], limit: int = 2000):
     rows = db.execute(
         sql(
             """
-            SELECT id, text, country, city, visitor_hash,
+            SELECT id, text, country, city, visitor_hash, status,
                    embedding <=> CAST(:v AS vector) AS distance
             FROM thoughts
-            WHERE status = 'ok'
+            WHERE status <> 'blocked'
               AND embedding <=> CAST(:v AS vector) < :maxd
             ORDER BY distance
             LIMIT :lim
@@ -82,7 +82,12 @@ def _suggestions(sugg_rows, exclude_hash):
 def analyse(db: Session, text_in: str, vec: list[float], visitor_hash: str):
     rows = _fetch_neighbours(db, vec)
     same_rows = [r for r in rows if r["distance"] < settings.same_distance]
-    sugg_rows = [r for r in rows if settings.same_distance <= r["distance"] < settings.suggest_distance]
+    # Suggestions show text to other people, so only moderated ('ok') thoughts
+    # are eligible. Counts/geo may include 'pending' (not yet checked) so people
+    # see each other immediately; a later 'blocked' verdict simply drops the row.
+    sugg_rows = [r for r in rows
+                 if r["status"] == "ok"
+                 and settings.same_distance <= r["distance"] < settings.suggest_distance]
 
     # Count distinct people (not submissions) who share the exact thought.
     same_people = {r["visitor_hash"] for r in same_rows}
