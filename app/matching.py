@@ -108,7 +108,11 @@ def analyse(db: Session, text_in: str, vec: list[float], visitor_hash: str):
     same_d, sugg_d = thresholds()
     rows = _fetch_neighbours(db, vec)
     # Seeds are never people: they don't count and don't appear in geo.
-    same_rows = [r for r in rows if r["distance"] < same_d and not r["is_seed"]]
+    # Your own earlier posts are not "others": without this, saying something
+    # twice told you one other person felt it, while your share card (which
+    # counts everyone once, you included) said you were the first.
+    same_rows = [r for r in rows if r["distance"] < same_d and not r["is_seed"]
+                 and r["visitor_hash"] != visitor_hash]
     # Suggestions show text to other people, so only moderated ('ok') thoughts
     # are eligible. Counts/geo may include 'pending' (not yet checked) so people
     # see each other immediately; a later 'blocked' verdict simply drops the row.
