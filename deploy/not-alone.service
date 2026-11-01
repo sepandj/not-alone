@@ -1,15 +1,17 @@
 [Unit]
 Description=not-alone web service
-After=network.target postgresql.service
-Wants=postgresql.service
+After=network.target postgresql.service redis-server.service
+Wants=postgresql.service redis-server.service
 
 [Service]
 Type=simple
 WorkingDirectory=/opt/not-alone/app
 Environment=LANG=en_US.UTF-8
 Environment=PYTHONPATH=/opt/not-alone/app
+# 4 workers x 2 model threads fits 8 cores (measured best: ~27 posts/s).
+Environment=EMBED_THREADS=2
 EnvironmentFile=/opt/not-alone/app/.env
-ExecStart=/opt/not-alone/app/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
+ExecStart=/opt/not-alone/app/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 4
 Restart=always
 RestartSec=3
 # Hardening

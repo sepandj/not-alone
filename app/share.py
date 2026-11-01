@@ -183,8 +183,11 @@ def render_card(words: str | None, total: int, kind: str) -> bytes:
     fy = h - int(h * (0.09 if story else 0.08)) - asc
     d.text(((w - fw) / 2, fy), DOMAIN, font=foot_f, fill=INK)
 
+    # JPEG, not PNG: the paper grain is noise, which PNG can't compress
+    # (2.6 MB vs 240 KB). Small files matter on a home upload link, and
+    # WhatsApp drops link-preview images over ~300 KB.
     buf = io.BytesIO()
-    img.save(buf, "PNG", optimize=True)
+    img.save(buf, "JPEG", quality=85, optimize=True, progressive=True)
     return buf.getvalue()
 
 
@@ -260,7 +263,7 @@ def page(share_id: str, words: str | None, total: int) -> str:
         alt = ""
     return PAGE.format(
         title=html.escape(title), desc=html.escape(desc), url=url,
-        image=f"{settings.public_url}/f/{share_id}.png?n={total}",
+        image=f"{settings.public_url}/f/{share_id}.jpg?n={total}",
         words_html=words_html, big=html.escape(big), small=html.escape(small),
         sid=html.escape(share_id), cta=cta, alt=alt,
     )

@@ -34,7 +34,8 @@ CLAUDE = "/root/.local/bin/claude"
 LOW_RATE = 10        # inputs in the last 10 min at/below which we treat as quiet
 SHORT_WAIT = 120     # quiet: process once the oldest pending is ~2 min old
 MAX_WAIT = 600       # busy: never let a pending thought wait longer than 10 min
-MAX_BATCH = 50       # always flush when this many are waiting (caps prompt size)
+MAX_BATCH = 150     # always flush when this many are waiting (one Claude call each)
+MAX_ROUNDS = 5      # at most this many batches per one-minute tick (~750/min)
 
 PROMPT_HEAD = """You are a safety classifier for an anonymous "you are not alone" \
 support service where people share one short thought or feeling.
@@ -108,7 +109,7 @@ def classify(entries) -> list[dict]:
     prompt = PROMPT_HEAD + json.dumps(entries, ensure_ascii=False)
     res = subprocess.run(
         [CLAUDE, "-p", prompt, "--model", MODEL, "--permission-mode", "default"],
-        capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL,
+        capture_output=True, text=True, timeout=300, stdin=subprocess.DEVNULL,
     )
     if res.returncode != 0:
         raise RuntimeError(f"claude failed: {res.stderr.strip()[:300]}")
@@ -147,13 +148,18 @@ def main():
         if pending:
             print(f"holding {pending} (oldest {oldest_age}s, rate {rate}/10min)", file=sys.stderr)
         return  # not yet -> no Claude call, no cost
-    entries = fetch_pending()
-    if not entries:
-        return
-    valid_ids = {e["id"] for e in entries}
-    verdicts = classify(entries)
-    ok, blocked = apply_verdicts(verdicts, valid_ids)
-    print(f"moderated {len(entries)} (rate {rate}/10min): {ok} ok, {blocked} blocked", file=sys.stderr)
+    # Under heavy load, clear several full batches per tick (~10 s each) so the
+    # backlog can't grow without bound; the timer fires again in a minute.
+    for _ in range(MAX_ROUNDS):
+        entries = fetch_pending()
+        if not entries:
+            return
+        valid_ids = {e["id"] for e in entries}
+        verdicts = classify(entries)
+        ok, blocked = apply_verdicts(verdicts, valid_ids)
+        print(f"moderated {len(entries)} (rate {rate}/10min): {ok} ok, {blocked} blocked", file=sys.stderr)
+        if len(entries) < MAX_BATCH:
+            return
 
 
 if __name__ == "__main__":

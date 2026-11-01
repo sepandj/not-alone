@@ -9,11 +9,12 @@ from sqlalchemy.orm import Session
 import hmac
 import os
 import secrets
+import time
 
 from .config import settings
 from .db import get_db, engine
 from .models import Thought, Share
-from .embedding import embed
+from .embedding import embed, Busy
 from .geo import locate, visitor_hash, sign
 from .safety import is_crisis, has_crisis_keywords, RESOURCES
 from .matching import analyse, same_people_count
@@ -33,8 +34,20 @@ def client_ip(request: Request) -> str:
 
 # Rate limits are per visitor. (Keying on the socket address would put every
 # visitor in one bucket, because all traffic arrives from Caddy on 127.0.0.1.)
-limiter = Limiter(key_func=client_ip, default_limits=["60/minute"])
+# Counts live in Redis so all uvicorn workers share them; with per-process
+# memory, 4 workers let ~4x the intended rate through. If Redis is down, fall
+# back to per-process memory rather than failing requests.
+limiter = Limiter(key_func=client_ip, default_limits=["60/minute"],
+                  storage_uri=settings.ratelimit_storage,
+                  in_memory_fallback_enabled=True, swallow_errors=True)
 app = FastAPI(title="not-alone")
+
+
+@app.on_event("startup")
+def _warm():
+    # Load the model and crisis references before taking traffic, so the first
+    # visitors after a restart don't wait several seconds.
+    is_crisis("warm up", embed("warm up"))
 app.state.limiter = limiter
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
@@ -63,7 +76,11 @@ class ThoughtIn(BaseModel):
 @limiter.limit("20/minute")
 def submit(payload: ThoughtIn, request: Request, db: Session = Depends(get_db)):
     text_in = payload.text
-    vec = embed(text_in)
+    try:
+        vec = embed(text_in)
+    except Busy:
+        raise HTTPException(status_code=503, headers={"Retry-After": "5"},
+                            detail="lots of people are here right now. try again in a moment.")
 
     ip = client_ip(request)
     vhash = visitor_hash(ip)
@@ -152,8 +169,8 @@ def author_card(payload: ShareIn, request: Request, db: Session = Depends(get_db
     """Story-sized card for the author to save or post. Rendered from their own
     words and returned only to them, so it doesn't wait for moderation."""
     t = _own_thought(db, payload)
-    png = sharing.render_card(t.text if payload.show_text else None, _total(db, t), "story")
-    return Response(png, media_type="image/png", headers={"Cache-Control": "private, no-store"})
+    jpg = sharing.render_card(t.text if payload.show_text else None, _total(db, t), "story")
+    return Response(jpg, media_type="image/jpeg", headers={"Cache-Control": "private, no-store"})
 
 
 def _load_share(db: Session, share_id: str) -> tuple[Share, Thought]:
@@ -170,12 +187,12 @@ def read_share(share_id: str, db: Session = Depends(get_db)):
     return {"text": t.text if _words_public(t, s.show_text) else None, "people": _total(db, t)}
 
 
-@app.get("/f/{share_id}.png")
+@app.get("/f/{share_id}.jpg")
 def share_image(share_id: str, db: Session = Depends(get_db)):
     s, t = _load_share(db, share_id)
     words = t.text if _words_public(t, s.show_text) else None
-    png = sharing.render_card(words, _total(db, t), "og")
-    return Response(png, media_type="image/png", headers={"Cache-Control": "public, max-age=300"})
+    jpg = sharing.render_card(words, _total(db, t), "og")
+    return Response(jpg, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=300"})
 
 
 @app.get("/f/{share_id}", response_class=HTMLResponse)
@@ -186,11 +203,21 @@ def share_page(share_id: str, db: Session = Depends(get_db)):
                         headers={"Cache-Control": "public, max-age=60"})
 
 
+_stats_cache: tuple[float, dict] | None = None
+
+
 @app.get("/api/stats")
 def stats(db: Session = Depends(get_db)):
-    total = db.execute(sql("SELECT COUNT(*) FROM thoughts WHERE NOT is_seed")).scalar() or 0
-    people = db.execute(sql("SELECT COUNT(DISTINCT visitor_hash) FROM thoughts WHERE NOT is_seed")).scalar() or 0
-    return {"thoughts": total, "people": people}
+    # Every home-page visit asks for this, so cache it briefly per worker.
+    global _stats_cache
+    now = time.monotonic()
+    if _stats_cache and now - _stats_cache[0] < 30:
+        return _stats_cache[1]
+    total = db.execute(sql("SELECT COUNT(*) FROM thoughts WHERE NOT is_seed AND status <> 'blocked'")).scalar() or 0
+    people = db.execute(sql("SELECT COUNT(DISTINCT visitor_hash) FROM thoughts WHERE NOT is_seed AND status <> 'blocked'")).scalar() or 0
+    out = {"thoughts": total, "people": people}
+    _stats_cache = (now, out)
+    return out
 
 
 @app.get("/healthz")

@@ -39,6 +39,9 @@ class Settings(BaseSettings):
 
     max_thought_chars: int = 280
 
+    # Shared rate-limit counters across uvicorn workers.
+    ratelimit_storage: str = "redis://127.0.0.1:6379/0"
+
     model_config_name: str = "not-alone"
 
 
