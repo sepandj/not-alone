@@ -5,155 +5,154 @@
 <title>Not Alone</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="Say what's on your mind, and see you're not alone in it.">
+<meta name="description" content="Say what's on your mind, and find you're not alone in it.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,300;1,6..72,400&family=Hanken+Grotesk:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Courier+Prime:wght@400;700&display=swap">
 <style>
-  /* Layout: one centered column, vertically settled; the input is the whole page
-     until a quiet response blooms beneath it. Mood: twilight + one warm light. */
+  /* Layout: one centered column, everything settled on the vertical midline.
+     Mood: an analog page under a reading glass. Ink on aged paper, no bright
+     color. the care is in the paper, the type, and the quiet. */
   :root{
-    --bg:#f3f1ec;          /* soft warm paper */
-    --ink:#2c2824;         /* warm near-black */
-    --muted:#8a8073;       /* warm grey */
-    --faint:#b7ad9f;       /* fainter grey */
-    --line:#e4ded3;        /* hairlines */
-    --surface:#fbfaf7;     /* gentle raised surface */
-    --glow:#bd7f33;        /* the warm light (restrained on paper) */
-    --serif:"Newsreader",Georgia,"Times New Roman",serif;
-    --sans:"Hanken Grotesk",system-ui,-apple-system,sans-serif;
+    --bg:#e7e1d3;          /* aged paper */
+    --panel:#f1ece0;       /* a lighter slip of paper for the field */
+    --ink:#312b22;         /* sepia ink */
+    --muted:#6d6453;       /* faded ink */
+    --faint:#a89d88;       /* very faded */
+    --line:#cabfaa;        /* pressed rule */
+    --serif:"EB Garamond",Garamond,Georgia,serif;
+    --type:"Courier Prime","Courier New",monospace;
     color-scheme:light;
   }
   @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-    --bg:#15161c;          /* deep twilight ink */
-    --ink:#eae6de;         /* warm paper text */
-    --muted:#9b9488;
-    --faint:#5f5a51;
-    --line:#282a33;
-    --surface:#1d1f27;
-    --glow:#e7b65f;        /* lamplight, glowing on dark */
+    --bg:#1b1812;          /* dark room, warm */
+    --panel:#232019;
+    --ink:#e8e1cf;         /* warm paper text */
+    --muted:#a89d86;
+    --faint:#6b6353;
+    --line:#352f27;
     color-scheme:dark;
   }}
   :root[data-theme="dark"]{
-    --bg:#15161c; --ink:#eae6de; --muted:#9b9488; --faint:#5f5a51;
-    --line:#282a33; --surface:#1d1f27; --glow:#e7b65f; color-scheme:dark;
+    --bg:#1b1812; --panel:#232019; --ink:#e8e1cf; --muted:#a89d86;
+    --faint:#6b6353; --line:#352f27; color-scheme:dark;
   }
 
   *{box-sizing:border-box}
   html,body{min-height:100%}
   body{
     margin:0; background:var(--bg); color:var(--ink);
-    font-family:var(--sans); font-size:16px; line-height:1.6;
-    -webkit-font-smoothing:antialiased;
+    font-family:var(--serif); font-size:18px; line-height:1.6;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
-    padding-block:7vh 5vh;
-    padding-left:max(22px,env(safe-area-inset-left,0px));
-    padding-right:max(22px,env(safe-area-inset-right,0px));
+    text-align:center;
+    padding-block:6vh 6vh;
+    padding-left:max(20px,env(safe-area-inset-left,0px));
+    padding-right:max(20px,env(safe-area-inset-right,0px));
   }
-  main{width:100%; max-width:540px; margin:0 auto}
+  /* faint paper grain, drawn not loaded */
+  body::before{
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:0; opacity:.5;
+    background-image:radial-gradient(var(--faint) .5px, transparent .6px);
+    background-size:4px 4px; mix-blend-mode:multiply;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) body::before{mix-blend-mode:screen; opacity:.06}}
+  :root[data-theme="dark"] body::before{mix-blend-mode:screen; opacity:.06}
+
+  main{width:100%; max-width:500px; margin:0 auto; position:relative; z-index:1}
 
   .brand{
-    font-family:var(--sans); font-weight:500; font-size:13px; letter-spacing:.14em;
-    text-transform:uppercase; color:var(--faint); text-align:center;
-    margin-bottom:38px;
+    font-family:var(--type); font-size:12px; letter-spacing:.34em; text-transform:uppercase;
+    color:var(--muted); margin-bottom:40px; font-weight:400;
   }
 
-  /* ---- Composer (the resting state) ---- */
-  .composer{transition:opacity .5s ease, transform .5s ease}
+  /* ---- Composer ---- */
+  .composer{display:flex; flex-direction:column; align-items:center; transition:opacity .45s ease}
   .prompt{
-    font-family:var(--serif); font-weight:300; font-size:clamp(26px,6vw,34px);
-    line-height:1.25; text-wrap:balance; text-align:center; color:var(--ink);
-    margin:0 0 26px;
+    font-family:var(--serif); font-weight:400; font-size:clamp(27px,8vw,36px);
+    line-height:1.25; text-wrap:balance; margin:0 0 28px; color:var(--ink);
   }
-  textarea{
-    width:100%; border:0; background:var(--surface);
-    border:1px solid var(--line); border-radius:18px;
-    padding:18px 20px; resize:none; overflow:hidden;
-    font-family:var(--serif); font-size:20px; font-weight:300; line-height:1.5;
-    color:var(--ink); outline:none; transition:border-color .25s ease;
-    min-height:64px;
-  }
-  textarea::placeholder{color:var(--faint); font-style:italic}
-  textarea:focus{border-color:var(--glow)}
-  .actions{display:flex; align-items:center; justify-content:space-between; margin-top:16px; gap:14px}
-  .hint{font-size:12.5px; color:var(--faint)}
-  button.share{
-    font-family:var(--sans); font-weight:500; font-size:15px;
-    color:var(--bg); background:var(--ink); border:0; border-radius:999px;
-    padding:12px 26px; cursor:pointer; transition:opacity .2s ease, transform .2s ease;
-  }
-  button.share:hover{opacity:.88}
-  button.share:active{transform:translateY(1px)}
-  button.share:disabled{opacity:.45; cursor:default}
-  :focus-visible{outline:2px solid var(--glow); outline-offset:3px; border-radius:6px}
 
-  /* ---- Response (blooms in) ---- */
-  .response{margin-top:4px}
+  /* the reading glass */
+  .lens{position:relative; width:100%; border-radius:999px/60px}
+  .lens textarea{
+    display:block; width:100%; border:1px solid var(--line); background:var(--panel);
+    border-radius:18px; padding:22px 24px; resize:none; overflow:hidden;
+    font-family:var(--serif); font-weight:400; font-size:clamp(22px,6.5vw,27px);
+    line-height:1.45; color:var(--ink); text-align:center; outline:none;
+    min-height:72px; box-shadow:inset 0 1px 0 rgba(255,255,255,.35), inset 0 0 22px rgba(0,0,0,.05);
+    transition:border-color .25s ease;
+  }
+  .lens textarea::placeholder{color:var(--faint); font-style:italic; font-size:19px}
+  .lens textarea:focus{border-color:var(--muted)}
+  /* convex glass sheen over the typed words */
+  .lens::after{
+    content:""; position:absolute; inset:0; border-radius:18px; pointer-events:none;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,0) 34%),
+      radial-gradient(130% 70% at 50% 6%, rgba(255,255,255,.16), transparent 60%);
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .lens::after{
+    background:linear-gradient(180deg, rgba(255,255,255,.07), transparent 40%);}}
+  :root[data-theme="dark"] .lens::after{background:linear-gradient(180deg, rgba(255,255,255,.07), transparent 40%)}
+  /* engraved magnifier, resting in the corner */
+  .loupe{position:absolute; right:14px; bottom:12px; width:22px; height:22px; opacity:.22; pointer-events:none; color:var(--muted)}
+
+  .say{
+    margin-top:26px; font-family:var(--type); font-weight:400; font-size:15px;
+    letter-spacing:.06em; color:var(--bg); background:var(--ink);
+    border:0; border-radius:4px; padding:14px 34px; cursor:pointer; min-height:48px;
+    transition:opacity .2s ease, transform .08s ease;
+  }
+  .say:hover{opacity:.9}
+  .say:active{transform:translateY(1px)}
+  .say:disabled{opacity:.4; cursor:default}
+  .hint{margin-top:18px; font-family:var(--type); font-size:11.5px; letter-spacing:.05em;
+    color:var(--faint); line-height:1.8}
+  :focus-visible{outline:2px solid var(--muted); outline-offset:3px}
+
+  /* ---- Response ---- */
+  .response{display:flex; flex-direction:column; align-items:center}
   .echo{
-    font-family:var(--serif); font-style:italic; font-weight:300;
-    font-size:19px; color:var(--muted); text-align:center; text-wrap:balance;
-    margin:0 0 30px;
+    font-family:var(--serif); font-style:italic; font-weight:400; font-size:20px;
+    color:var(--muted); text-wrap:balance; margin:0 0 32px; max-width:30ch; line-height:1.5;
   }
-  .echo::before{content:"\201C"} .echo::after{content:"\201D"}
   .lead{
-    font-family:var(--serif); font-weight:300; font-size:clamp(28px,7vw,38px);
-    line-height:1.2; text-align:center; text-wrap:balance; margin:0 0 6px;
+    font-family:var(--serif); font-weight:400; font-size:clamp(30px,9vw,40px);
+    line-height:1.18; text-wrap:balance; margin:0 0 10px; color:var(--ink);
   }
-  .count-num{color:var(--glow); font-weight:400}
-  .sub{
-    font-family:var(--serif); font-weight:300; font-size:19px; color:var(--muted);
-    text-align:center; text-wrap:balance; margin:0 auto; max-width:30ch;
-  }
-  .where{
-    font-family:var(--sans); font-size:14px; color:var(--muted);
-    text-align:center; margin:22px auto 0; max-width:34ch; line-height:1.6;
-  }
-  .suggest{margin-top:34px; text-align:center}
-  .suggest-label{
-    font-family:var(--sans); font-size:12px; letter-spacing:.1em; text-transform:uppercase;
-    color:var(--faint); margin-bottom:14px;
-  }
-  .pills{display:flex; flex-wrap:wrap; gap:9px; justify-content:center}
-  .pill{
-    font-family:var(--serif); font-weight:300; font-size:16px; font-style:italic;
-    color:var(--ink); background:transparent; border:1px solid var(--line);
-    border-radius:999px; padding:8px 16px; cursor:pointer;
-    transition:border-color .2s ease, color .2s ease;
-  }
-  .pill:hover{border-color:var(--glow); color:var(--glow)}
-  .pill .n{font-family:var(--sans); font-style:normal; font-size:12px; color:var(--faint); margin-left:7px}
+  .count-num{font-weight:500; border-bottom:2px solid var(--line); padding-bottom:1px}
+  .sub{font-family:var(--serif); font-weight:400; font-size:20px; color:var(--muted);
+    text-wrap:balance; margin:0 auto; max-width:30ch}
+  .where{font-family:var(--type); font-size:12.5px; letter-spacing:.03em; color:var(--muted);
+    margin:26px auto 0; max-width:36ch; line-height:1.9}
 
-  .care{
-    margin-top:34px; background:var(--surface); border:1px solid var(--line);
-    border-left:3px solid var(--glow); border-radius:14px; padding:18px 20px;
-    text-align:left;
-  }
-  .care p{font-family:var(--serif); font-weight:300; font-size:17px; margin:0 0 12px; color:var(--ink)}
-  .care ul{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:7px}
-  .care li{font-size:14px; color:var(--muted)}
-  .care b{color:var(--ink); font-weight:600}
-  .care a{color:var(--glow); text-decoration:none}
-  .care a:hover{text-decoration:underline}
+  .suggest{margin-top:38px; width:100%}
+  .suggest-label{font-family:var(--type); font-size:11px; letter-spacing:.22em; text-transform:uppercase;
+    color:var(--faint); margin-bottom:16px}
+  .pills{display:flex; flex-wrap:wrap; gap:10px; justify-content:center}
+  .pill{font-family:var(--serif); font-style:italic; font-weight:400; font-size:17px;
+    color:var(--ink); background:transparent; border:1px solid var(--line); border-radius:3px;
+    padding:9px 15px; cursor:pointer; transition:border-color .2s ease}
+  .pill:hover{border-color:var(--muted)}
+  .pill .n{font-family:var(--type); font-style:normal; font-size:11px; color:var(--faint); margin-left:9px}
 
-  .again{
-    display:block; margin:40px auto 0; background:none; border:0; cursor:pointer;
-    font-family:var(--sans); font-size:14px; color:var(--muted);
-    border-bottom:1px solid var(--line); padding:4px 2px;
-  }
+  .care{margin-top:38px; width:100%; background:var(--panel); border:1px solid var(--line);
+    border-radius:8px; padding:22px; text-align:center}
+  .care p{font-family:var(--serif); font-size:18px; margin:0 0 14px; color:var(--ink)}
+  .care ul{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:9px}
+  .care li{font-family:var(--type); font-size:13px; color:var(--muted); line-height:1.6}
+  .care b{color:var(--ink)}
+  .care a{color:var(--ink); text-decoration:underline}
+
+  .again{margin:44px auto 0; background:none; border:0; cursor:pointer;
+    font-family:var(--type); font-size:12px; letter-spacing:.08em; color:var(--muted);
+    border-bottom:1px solid var(--line); padding:5px 2px}
   .again:hover{color:var(--ink)}
 
-  /* bloom-in motion */
-  .bloom > *{opacity:0; transform:translateY(10px); animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards}
-  .bloom > *:nth-child(1){animation-delay:.02s}
-  .bloom > *:nth-child(2){animation-delay:.12s}
-  .bloom > *:nth-child(3){animation-delay:.22s}
-  .bloom > *:nth-child(4){animation-delay:.32s}
-  .bloom > *:nth-child(5){animation-delay:.42s}
-  @keyframes rise{to{opacity:1; transform:none}}
-  @media (prefers-reduced-motion:reduce){
-    .bloom > *{animation:none; opacity:1; transform:none}
-    .composer{transition:none}
-  }
+  .fade{animation:fade .8s ease forwards}
+  @keyframes fade{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
+  @media (prefers-reduced-motion:reduce){.fade{animation:none} .composer{transition:none}}
 </style>
 </head>
 <body>
@@ -162,11 +161,14 @@
 
   <form class="composer" id="composer">
     <h1 class="prompt">What's on your mind?</h1>
-    <textarea id="thought" rows="1" maxlength="280" placeholder="say it as plainly as you feel it…" aria-label="your thought"></textarea>
-    <div class="actions">
-      <span class="hint" id="hint">no names, no accounts — only the feeling</span>
-      <button class="share" id="send" type="submit">Share</button>
+    <div class="lens">
+      <textarea id="thought" rows="1" maxlength="280" placeholder="say it plainly, however it comes" aria-label="your thought"></textarea>
+      <svg class="loupe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+        <circle cx="10.5" cy="10.5" r="7"></circle><line x1="15.8" y1="15.8" x2="21" y2="21"></line>
+      </svg>
     </div>
+    <button class="say" id="send" type="submit">Let it out</button>
+    <div class="hint">no names. no accounts. only the feeling.</div>
   </form>
 
   <section class="response" id="response" hidden aria-live="polite"></section>
@@ -176,10 +178,8 @@
 const $ = s => document.querySelector(s);
 const ta = $("#thought"), composer = $("#composer"), response = $("#response");
 
-// gentle auto-grow
-function grow(){ ta.style.height="auto"; ta.style.height=Math.min(ta.scrollHeight,260)+"px"; }
+function grow(){ ta.style.height="auto"; ta.style.height=Math.min(ta.scrollHeight,240)+"px"; }
 ta.addEventListener("input", grow);
-
 composer.addEventListener("submit", e => { e.preventDefault(); submit(); });
 ta.addEventListener("keydown", e => {
   if(e.key==="Enter" && (e.metaKey||e.ctrlKey)){ e.preventDefault(); submit(); }
@@ -195,82 +195,71 @@ function placesLine(countries, cities){
   else if(names.length===2) where = names[0]+" and "+names[1];
   else where = names[0]+", "+names[1]+", and "+(names.length-2)+" other place"+(names.length-2>1?"s":"");
   const city = (cities||[]).find(c => c.city && c.country!=="Unknown");
-  const near = city ? ` — one of them near ${esc(city.city)}` : "";
-  return `with people in ${esc(where)}${near}.`;
+  const near = city ? `, including someone near ${esc(city.city)}` : "";
+  return `with people in ${esc(where)}${near}`;
 }
 
 function render(d){
-  const others = d.others_feeling_this;
-  const parts = [];
-
+  const others = d.others_feeling_this, parts = [];
   parts.push(`<p class="echo">${esc(d.you_said)}</p>`);
-
   if(others > 0){
-    const ppl = others===1 ? "1 other person has" : `<span class="count-num">${others}</span> others have`;
+    const ppl = others===1 ? "one other person has" : `<span class="count-num">${others}</span> others have`;
     parts.push(`<h2 class="lead">you're not alone.</h2>`);
     parts.push(`<p class="sub">${ppl} felt this too.</p>`);
   } else {
     parts.push(`<h2 class="lead">you're the first to say this here.</h2>`);
-    parts.push(`<p class="sub">by putting it into words, you've made it easier for whoever feels it next.</p>`);
+    parts.push(`<p class="sub">by putting it into words, you made it easier for whoever feels it next.</p>`);
   }
-
   const where = placesLine(d.countries, d.cities);
   if(where) parts.push(`<p class="where">${where}</p>`);
-
   if(d.crisis){
     const lines = d.crisis.lines.map(l => {
       const c = l.contact.startsWith("http")
-        ? `<a href="${esc(l.contact)}" target="_blank" rel="noopener">${esc(l.contact)}</a>`
-        : esc(l.contact);
-      return `<li><b>${esc(l.where)}:</b> ${esc(l.name)} — ${c}</li>`;
+        ? `<a href="${esc(l.contact)}" target="_blank" rel="noopener">${esc(l.contact)}</a>` : esc(l.contact);
+      return `<li><b>${esc(l.where)}:</b> ${esc(l.name)}, ${c}</li>`;
     }).join("");
     parts.push(`<div class="care"><p>${esc(d.crisis.message)}</p><ul>${lines}</ul></div>`);
   }
-
   if(d.suggestions && d.suggestions.length){
     const pills = d.suggestions.map(s =>
       `<button class="pill" type="button" data-t="${esc(s.thought)}">${esc(s.thought)}<span class="n">${s.people}</span></button>`
     ).join("");
     parts.push(`<div class="suggest"><div class="suggest-label">others nearby also hold</div><div class="pills">${pills}</div></div>`);
   }
-
   parts.push(`<button class="again" type="button" id="again">say something else</button>`);
 
   response.innerHTML = parts.join("");
-  response.classList.remove("bloom"); void response.offsetWidth; response.classList.add("bloom");
+  response.classList.remove("fade"); void response.offsetWidth; response.classList.add("fade");
   response.hidden = false;
-
   response.querySelectorAll(".pill").forEach(p => p.addEventListener("click", () => {
     ta.value = p.dataset.t; reset(false); grow(); submit();
   }));
-  $("#again").addEventListener("click", () => { reset(true); });
+  $("#again").addEventListener("click", () => reset(true));
   response.scrollIntoView({behavior:"smooth", block:"center"});
 }
 
 function reset(focus){
   response.hidden = true; response.innerHTML = "";
-  composer.style.opacity=""; composer.style.transform="";
+  composer.style.opacity = "";
   if(focus){ ta.value=""; grow(); ta.focus(); }
 }
 
 async function submit(){
   const text = ta.value.trim();
-  if(!text) { ta.focus(); return; }
-  const btn = $("#send"); btn.disabled = true;
-  composer.style.opacity = ".35"; composer.style.transform = "scale(.99)";
+  if(!text){ ta.focus(); return; }
+  const btn = $("#send"); btn.disabled = true; composer.style.opacity = ".3";
   try{
     const r = await fetch("/api/thoughts", {
-      method:"POST", headers:{"content-type":"application/json"},
-      body: JSON.stringify({text})
+      method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify({text})
     });
     if(!r.ok) throw new Error();
     render(await r.json());
   }catch(e){
-    composer.style.opacity=""; composer.style.transform="";
-    $("#hint").textContent = "something slipped — try once more.";
-  }finally{
-    btn.disabled = false;
+    composer.style.opacity = ""; $("#send").disabled = false;
+    $(".hint").textContent = "that did not send. try once more.";
+    return;
   }
+  btn.disabled = false;
 }
 
 grow(); ta.focus();
