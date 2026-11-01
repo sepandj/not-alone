@@ -83,3 +83,7 @@ shared.
 
 This is a supportive, anonymous experiment — not a medical or crisis service.
 If you or someone else is in danger, contact your local emergency number.
+
+## License
+
+MIT, see [LICENSE](LICENSE). City data from [DB-IP](https://db-ip.com) (CC BY 4.0).
