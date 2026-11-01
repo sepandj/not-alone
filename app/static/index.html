@@ -138,6 +138,7 @@
   }
   .sub{font-family:var(--serif); font-weight:400; font-size:20px; color:var(--muted);
     text-wrap:balance; margin:0 auto; max-width:30ch}
+  .sub.again{margin-top:14px; max-width:none; font-family:var(--type); font-size:13px; letter-spacing:.04em; color:var(--muted)}
 
   .care{margin-top:38px; width:100%; background:var(--panel); border:1px solid var(--line);
     border-radius:8px; padding:22px; text-align:center}
@@ -242,11 +243,14 @@ function esc(s){ return s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"
 
 function render(d){
   const total = d.total_including_you, parts = [];
+  const before = Number(d.you_said_before) || 0;   // your own earlier posts with this meaning
+  const again = before >= 2 ? `you've said this ${before + 1} times now.` : "you've said this before.";
   if(total > 1){
     parts.push(`<h2 class="lead">${total.toLocaleString()} people have felt this.</h2>`);
     parts.push(`<p class="sub">you're not alone.</p>`);
-  } else if(d.you_said_before){
-    parts.push(`<h2 class="lead">you've felt this before.</h2>`);
+    if(before) parts.push(`<p class="sub again">${again}</p>`);
+  } else if(before){
+    parts.push(`<h2 class="lead">${again}</h2>`);
     parts.push(`<p class="sub">no one else has said it here yet.</p>`);
   } else {
     parts.push(`<h2 class="lead">you're the first to say this.</h2>`);

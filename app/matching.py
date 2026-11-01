@@ -120,10 +120,10 @@ def analyse(db: Session, text_in: str, vec: list[float], visitor_hash: str):
                  if r["status"] == "ok"
                  and same_d <= r["distance"] < sugg_d]
 
-    # Has this same person said something with this meaning before? Lets the
-    # page say "you've said this before" instead of "you're the first".
-    said_before = any(r["distance"] < same_d and not r["is_seed"]
-                      and r["visitor_hash"] == visitor_hash for r in rows)
+    # How many times this same person has said something with this meaning
+    # before, so the page can tell them ("you've said this before").
+    said_before = sum(1 for r in rows if r["distance"] < same_d and not r["is_seed"]
+                      and r["visitor_hash"] == visitor_hash)
 
     # Count distinct people (not submissions) who share the exact thought.
     same_people = {r["visitor_hash"] for r in same_rows}
