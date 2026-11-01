@@ -17,7 +17,8 @@ def _fetch_neighbours(db: Session, vec: list[float], limit: int = 2000):
             SELECT id, text, country, city, visitor_hash,
                    embedding <=> CAST(:v AS vector) AS distance
             FROM thoughts
-            WHERE embedding <=> CAST(:v AS vector) < :maxd
+            WHERE status = 'ok'
+              AND embedding <=> CAST(:v AS vector) < :maxd
             ORDER BY distance
             LIMIT :lim
             """

@@ -1,0 +1,10 @@
+[Unit]
+Description=Run not-alone moderation agent every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=60s
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

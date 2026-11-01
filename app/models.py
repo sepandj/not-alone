@@ -21,6 +21,13 @@ class Thought(Base):
     country: Mapped[str] = mapped_column(String(80), default="Unknown")
     city: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
+    # Moderation lifecycle: 'pending' -> 'ok' | 'blocked'. Only 'ok' thoughts are
+    # ever counted for other people or surfaced as suggestions. A newly submitted
+    # thought starts 'pending' and the low-cost Claude agent clears it shortly
+    # after. 'reason' stores the agent's short justification for blocks.
+    status: Mapped[str] = mapped_column(String(10), default="pending", index=True)
+    mod_reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
     # Salted hash of the visitor's IP — lets us count *distinct people* per city
     # for k-anonymity without ever storing an IP address.
     visitor_hash: Mapped[str] = mapped_column(String(64), index=True)
