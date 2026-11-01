@@ -199,6 +199,7 @@ PAGE = """<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{title} · Not Alone</title>
 <meta name="description" content="{desc}">
+<meta name="robots" content="noindex">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Not Alone">
 <meta property="og:title" content="{title}">

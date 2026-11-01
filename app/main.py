@@ -19,6 +19,7 @@ from .geo import locate, visitor_hash, sign
 from .safety import is_crisis, has_crisis_keywords, RESOURCES
 from .matching import analyse, same_people_count
 from . import share as sharing
+from . import seo
 
 
 def client_ip(request: Request) -> str:
@@ -230,4 +231,5 @@ def index():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 
+app.include_router(seo.router)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
