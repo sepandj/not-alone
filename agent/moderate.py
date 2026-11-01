@@ -20,8 +20,21 @@ import sys
 
 CTID = "100"
 MODEL = "claude-haiku-5-5"
-BATCH = 30
 CLAUDE = "/root/.local/bin/claude"
+
+# --- Adaptive cadence -------------------------------------------------------
+# The timer ticks every minute; each tick we decide whether it's worth a Claude
+# call yet. The aim: feel instant when quiet, batch efficiently when busy.
+#
+#   quiet  (few inputs)  -> process after a short wait, so people see their
+#                           result within a couple of minutes.
+#   busy   (piling up)   -> hold longer to gather a bigger batch ("capture more
+#                           data" per call), but never past MAX_WAIT, and always
+#                           flush once the batch hits MAX_BATCH.
+LOW_RATE = 10        # inputs in the last 10 min at/below which we treat as quiet
+SHORT_WAIT = 120     # quiet: process once the oldest pending is ~2 min old
+MAX_WAIT = 600       # busy: never let a pending thought wait longer than 10 min
+MAX_BATCH = 50       # always flush when this many are waiting (caps prompt size)
 
 PROMPT_HEAD = """You are a safety classifier for an anonymous "you are not alone" \
 support service where people share one short thought or feeling.
@@ -58,10 +71,36 @@ def psql(sql: str) -> str:
     return out.stdout.strip()
 
 
+def gauge():
+    """Return (pending_count, oldest_pending_age_seconds, rate_last_10min)."""
+    sql = (
+        "SELECT count(*) FILTER (WHERE status='pending'), "
+        "COALESCE(EXTRACT(EPOCH FROM now() - min(created_at) "
+        "  FILTER (WHERE status='pending')),0)::int, "
+        "count(*) FILTER (WHERE created_at > now() - interval '10 minutes') "
+        "FROM thoughts"
+    )
+    row = psql(sql).split("|")
+    return int(row[0]), int(row[1]), int(row[2])
+
+
+def should_process(pending: int, oldest_age: int, rate: int) -> bool:
+    if pending == 0:
+        return False
+    if pending >= MAX_BATCH:
+        return True
+    # Wait longer the busier it is, scaling smoothly from SHORT_WAIT up to MAX_WAIT.
+    if rate <= LOW_RATE:
+        wait_needed = SHORT_WAIT
+    else:
+        wait_needed = min(MAX_WAIT, int(SHORT_WAIT * rate / LOW_RATE))
+    return oldest_age >= wait_needed
+
+
 def fetch_pending():
     sql = ("SELECT COALESCE(json_agg(json_build_object('id',id,'text',text)),'[]') "
            "FROM (SELECT id,text FROM thoughts WHERE status='pending' "
-           f"ORDER BY id LIMIT {BATCH}) t")
+           f"ORDER BY id LIMIT {MAX_BATCH}) t")
     return json.loads(psql(sql) or "[]")
 
 
@@ -103,13 +142,18 @@ def apply_verdicts(verdicts, valid_ids):
 
 
 def main():
+    pending, oldest_age, rate = gauge()
+    if not should_process(pending, oldest_age, rate):
+        if pending:
+            print(f"holding {pending} (oldest {oldest_age}s, rate {rate}/10min)", file=sys.stderr)
+        return  # not yet -> no Claude call, no cost
     entries = fetch_pending()
     if not entries:
-        return  # nothing to do -> no Claude call, no cost
+        return
     valid_ids = {e["id"] for e in entries}
     verdicts = classify(entries)
     ok, blocked = apply_verdicts(verdicts, valid_ids)
-    print(f"moderated {len(entries)}: {ok} ok, {blocked} blocked", file=sys.stderr)
+    print(f"moderated {len(entries)} (rate {rate}/10min): {ok} ok, {blocked} blocked", file=sys.stderr)
 
 
 if __name__ == "__main__":
