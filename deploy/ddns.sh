@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Dynamic DNS: keep notalone.sepand.dev pointed at this network's current public
-# IP. Comcast residential IPs change occasionally; this closes that gap.
+# Dynamic DNS: keep every self-hosted *.sepand.dev name pointed at this
+# network's current public IP. Comcast residential IPs change occasionally; this closes that gap.
 #
 # Reads the GoDaddy Personal Access Token from /opt/not-alone/.godaddy:
 #   GD_SECRET=gd_pat_xxx
@@ -8,7 +8,7 @@
 set -euo pipefail
 
 DOMAIN="sepand.dev"
-NAME="notalone"
+NAMES="${DDNS_NAMES:-notalone preview}"
 CREDS="/opt/not-alone/.godaddy"
 TTL=600
 
@@ -23,23 +23,27 @@ if ! [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 	exit 1
 fi
 
-current="$(curl -s --max-time 10 -H "Authorization: Bearer ${GD_SECRET}" \
-	"https://api.godaddy.com/v1/domains/${DOMAIN}/records/A/${NAME}" \
-	| grep -o '"data":"[0-9.]*"' | head -1 | cut -d'"' -f4 || true)"
+fail=0
+for NAME in $NAMES; do
+	current="$(curl -s --max-time 10 -H "Authorization: Bearer ${GD_SECRET}" \
+		"https://api.godaddy.com/v1/domains/${DOMAIN}/records/A/${NAME}" \
+		| grep -o '"data":"[0-9.]*"' | head -1 | cut -d'"' -f4 || true)"
 
-if [ "$ip" = "$current" ]; then
-	echo "$(date -Is) unchanged: $NAME.$DOMAIN -> $ip"
-	exit 0
-fi
+	if [ "$ip" = "$current" ]; then
+		echo "$(date -Is) unchanged: $NAME.$DOMAIN -> $ip"
+		continue
+	fi
 
-code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -X PUT \
-	-H "Authorization: Bearer ${GD_SECRET}" -H "Content-Type: application/json" \
-	"https://api.godaddy.com/v1/domains/${DOMAIN}/records/A/${NAME}" \
-	-d "[{\"data\":\"${ip}\",\"ttl\":${TTL}}]")"
+	code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -X PUT \
+		-H "Authorization: Bearer ${GD_SECRET}" -H "Content-Type: application/json" \
+		"https://api.godaddy.com/v1/domains/${DOMAIN}/records/A/${NAME}" \
+		-d "[{\"data\":\"${ip}\",\"ttl\":${TTL}}]")"
 
-if [ "$code" = "200" ]; then
-	echo "$(date -Is) updated: $NAME.$DOMAIN $current -> $ip"
-else
-	echo "$(date -Is) update FAILED (HTTP $code)" >&2
-	exit 1
-fi
+	if [ "$code" = "200" ]; then
+		echo "$(date -Is) updated: $NAME.$DOMAIN $current -> $ip"
+	else
+		echo "$(date -Is) update FAILED (HTTP $code)" >&2
+		fail=1; continue
+	fi
+done
+exit $fail
