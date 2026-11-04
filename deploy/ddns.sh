@@ -8,7 +8,7 @@
 set -euo pipefail
 
 DOMAIN="sepand.dev"
-NAMES="${DDNS_NAMES:-@ notalone preview blackhole}"
+NAMES="${DDNS_NAMES:-@ notalone preview blackhole chat}"
 CREDS="/opt/not-alone/.godaddy"
 TTL=600
 
